@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container mt-4">
+
+    <h3 class="fw-bold mb-3">📄 Ordens de Compra</h3>
+
+    <!-- TOTALIZADORES -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-center shadow-sm">
+                <div class="card-body">
+                    <div class="text-muted">Pendentes</div>
+                    <h4 class="text-warning">
+                        {{ ordens | selectattr("status", "equalto", "Pendente") | list | length }}
+                    </h4>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card text-center shadow-sm">
+                <div class="card-body">
+                    <div class="text-muted">Aprovadas</div>
+                    <h4 class="text-success">
+                        {{ ordens | selectattr("status", "equalto", "Aprovada") | list | length }}
+                    </h4>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card text-center shadow-sm">
+                <div class="card-body">
+                    <div class="text-muted">Reprovadas</div>
+                    <h4 class="text-danger">
+                        {{ ordens | selectattr("status", "equalto", "Reprovada") | list | length }}
+                    </h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TABELA -->
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>ID</th>
+                        <th>Fornecedor</th>
+                        <th>Centro de Custo</th>
+                        <th>Valor</th>
+                        <th>Aprovador</th>
+                        <th>Status</th>
+                        <th class="text-end">Ações</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                {% for ordem in ordens %}
+                    <tr>
+
+                        <td>{{ ordem.id }}</td>
+                        <td>{{ ordem.fornecedor }}</td>
+                        <td>{{ ordem.centro_custo }}</td>
+                        <td>R$ {{ "%.2f"|format(ordem.valor) }}</td>
+                        <td>{{ ordem.aprovador or "-" }}</td>
+
+                        <!-- STATUS -->
+                        <td>
+                            {% if ordem.status == 'Pendente' %}
+                                <span class="badge bg-warning text-dark">Pendente</span>
+                            {% elif ordem.status == 'Aprovada' %}
+                                <span class="badge bg-success">Aprovada</span>
+                            {% else %}
+                                <span class="badge bg-danger">Reprovada</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- AÇÕES -->
+                        <td class="text-end">
+
+                            {% if ordem.status == 'Pendente' %}
+                                <form method="POST"
+                                      action="{{ url_for('aprovar', ordem_id=ordem.id) }}"
+                                      style="display:inline;"
+                                      onsubmit="return confirm('Aprovar esta ordem?');">
+                                    <button class="btn btn-sm btn-success">
+                                        ✔ Aprovar
+                                    </button>
+                                </form>
+
+                                <form method="POST"
+                                      action="{{ url_for('reprovar_ordem', ordem_id=ordem.id) }}"
+                                      style="display:inline;"
+                                      onsubmit="return confirm('Reprovar esta ordem?');">
+                                    <button class="btn btn-sm btn-danger">
+                                        ✖ Reprovar
+                                    </button>
+                                </form>
+                            {% endif %}
+
+                            {% if current_user.perfil == 'admin' %}
+    <form method="POST"
+          action="{{ url_for('excluir_ordem', ordem_id=ordem.id) }}"
+          style="display:inline;"
+          onsubmit="return confirm('Tem certeza que deseja EXCLUIR esta ordem? Esta ação não pode ser desfeita.');">
+        <button class="btn btn-sm btn-outline-danger">
+            🗑 Excluir
+        </button>
+    </form>
+{% endif %}
+
+
+                        </td>
+
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted p-4">
+                            Nenhuma ordem encontrada
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+
+            </table>
+
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container mt-5 text-center">
+    <div class="card shadow mx-auto" style="max-width: 500px;">
+        <div class="card-body">
+            <h4 class="text-danger mb-3">
+                <i class="bi bi-shield-lock"></i> Acesso restrito
+            </h4>
+
+            <p class="mb-3">
+                Esta área é restrita ao administrador do sistema.
+            </p>
+
+            <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+                Voltar ao Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

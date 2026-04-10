@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container mt-4" style="max-width: 500px;">
+    <h4 class="fw-bold mb-3">Editar Saldo</h4>
+
+    <form method="POST" class="card shadow p-4">
+        <div class="mb-3">
+            <label class="form-label">Aprovador</label>
+            <input type="text" class="form-control" value="{{ saldo.nome_aprovador }}" disabled>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Saldo</label>
+            <input type="number" step="0.01" name="saldo" class="form-control"
+                   value="{{ saldo.saldo }}" required>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button class="btn btn-success">Salvar</button>
+            <a href="{{ url_for('financeiro') }}" class="btn btn-secondary">Cancelar</a>
+        </div>
+    </form>
+</div>
+
+{% endblock %}

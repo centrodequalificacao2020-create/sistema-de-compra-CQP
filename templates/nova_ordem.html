@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+.erp-card { border: none; box-shadow: 0 8px 25px rgba(0,0,0,0.05); border-radius: 12px; }
+.risk-bar-container { height: 8px; background: #e5e7eb; border-radius: 10px; overflow: hidden; }
+.risk-bar { height: 100%; width: 0%; transition: 0.3s; }
+.risk-low { background: #16a34a; }
+.risk-medium { background: #f59e0b; }
+.risk-high { background: #dc2626; }
+</style>
+
+<div class="container mt-4" style="max-width:1100px;">
+
+<h4 class="fw-bold text-primary mb-4">🛒 Nova Ordem de Compra</h4>
+
+<form method="POST" class="card erp-card p-4">
+
+<div class="row mb-4">
+<div class="col-md-6">
+<label class="form-label fw-semibold">Fornecedor</label>
+<select name="fornecedor" class="form-select" required>
+<option value="">— Selecione —</option>
+{% for f in fornecedores %}
+<option value="{{ f.nome }}">{{ f.nome }}</option>
+{% endfor %}
+</select>
+</div>
+
+<div class="col-md-6">
+<label class="form-label fw-semibold">Centro de Custo</label>
+<select name="centro_custo" class="form-select" required>
+<option value="">— Selecione —</option>
+{% for c in centros_custo %}
+<option value="{{ c.nome }}">{{ c.nome }}</option>
+{% endfor %}
+</select>
+</div>
+</div>
+
+<div class="card shadow mb-3">
+<div class="card-body p-0">
+
+<table class="table mb-0" id="tabelaProdutos">
+<thead class="table-light">
+<tr>
+<th style="width:35%">Produto</th>
+<th>Qtd</th>
+<th>Valor Unit.</th>
+<th>Subtotal</th>
+<th></th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+</div>
+</div>
+
+<button type="button" class="btn btn-outline-primary mb-3" onclick="addLinha()">➕ Adicionar Produto</button>
+
+<div class="d-flex justify-content-end align-items-center gap-3 mt-4">
+<div>
+<h4 class="fw-bold mb-1">Total: R$ <span id="totalGeral">0.00</span></h4>
+<div class="risk-bar-container">
+<div id="riskBar" class="risk-bar"></div>
+</div>
+<div id="aprovadorInfo" class="mt-2 fw-semibold text-primary"></div>
+<div id="bloqueioInfo" class="text-danger fw-semibold"></div>
+</div>
+</div>
+
+<div class="text-end mt-4">
+<input type="hidden" name="aprovador" id="campoAprovador">
+<button id="btnSubmit" class="btn btn-primary px-4">Criar Ordem</button>
+</div>
+
+</form>
+</div>
+
+<script>
+const produtos = {{ produtos|tojson }};
+const LIMITE_PADRAO = 600;
+const LIMITE_MAXIMO = 5000;
+
+function addLinha() {
+const tbody = document.querySelector("#tabelaProdutos tbody");
+const tr = document.createElement("tr");
+
+tr.innerHTML = `
+<td>
+<select name="produto_id[]" class="form-select" required>
+${produtos.map(p => `<option value="${p.id}">${p.nome}</option>`).join("")}
+</select>
+</td>
+<td><input type="number" name="quantidade[]" min="1" value="1" class="form-control" onchange="calcular()" required></td>
+<td><input type="number" name="valor_unitario[]" step="0.01" value="0" class="form-control" onchange="calcular()" required></td>
+<td class="subtotal">0.00</td>
+<td><button type="button" class="btn btn-sm btn-danger" onclick="this.closest('tr').remove();calcular()">X</button></td>
+`;
+
+tbody.appendChild(tr);
+calcular();
+}
+
+function calcular() {
+let total = 0;
+
+document.querySelectorAll("#tabelaProdutos tbody tr").forEach(linha => {
+const qtd = parseFloat(linha.querySelector("input[name='quantidade[]']").value) || 0;
+const valor = parseFloat(linha.querySelector("input[name='valor_unitario[]']").value) || 0;
+const subtotal = qtd * valor;
+linha.querySelector(".subtotal").innerText = subtotal.toFixed(2);
+total += subtotal;
+});
+
+document.getElementById("totalGeral").innerText = total.toFixed(2);
+
+const riskBar = document.getElementById("riskBar");
+const aprovadorInfo = document.getElementById("aprovadorInfo");
+const bloqueioInfo = document.getElementById("bloqueioInfo");
+const btnSubmit = document.getElementById("btnSubmit");
+
+let percentual = Math.min((total / LIMITE_MAXIMO) * 100, 100);
+riskBar.style.width = percentual + "%";
+riskBar.className = "risk-bar";
+
+if (total <= LIMITE_PADRAO) {
+riskBar.classList.add("risk-low");
+aprovadorInfo.innerHTML = "✔️ Aprovador: <strong>Ruana Maia</strong>";
+document.getElementById("campoAprovador").value = "Ruana Maia";
+bloqueioInfo.innerHTML = "";
+btnSubmit.disabled = false;
+}
+else if (total <= LIMITE_MAXIMO) {
+riskBar.classList.add("risk-medium");
+aprovadorInfo.innerHTML = "⚠️ Aprovador: <strong>Raquel Melo</strong>";
+document.getElementById("campoAprovador").value = "Ruana Maia";
+bloqueioInfo.innerHTML = "";
+btnSubmit.disabled = false;
+}
+else {
+riskBar.classList.add("risk-high");
+aprovadorInfo.innerHTML = "";
+bloqueioInfo.innerHTML = "⚠️ Valor acima do limite máximo permitido (R$ 5.000)";
+btnSubmit.disabled = true;
+}
+}
+
+addLinha();
+</script>
+
+{% endblock %}

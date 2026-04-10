@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Usuários{% endblock %}
+
+{% block content %}
+
+<h2 class="fw-bold mb-4">Gestão de Usuários</h2>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="post" action="{{ url_for('novo_usuario') }}" class="row g-3">
+      <div class="col-md-4">
+        <input type="email" name="email" class="form-control" placeholder="Email" required>
+      </div>
+      <div class="col-md-3">
+        <input type="text" name="senha" class="form-control" placeholder="Senha" required>
+      </div>
+      <div class="col-md-3">
+        <select name="perfil" class="form-select">
+          <option value="usuario">Usuário</option>
+          <option value="aprovador">Aprovador</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-primary w-100">Criar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <table class="table table-hover">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Email</th>
+          <th>Perfil</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in usuarios %}
+        <tr>
+          <td>{{ u.id }}</td>
+          <td>{{ u.email }}</td>
+          <td>{{ u.perfil }}</td>
+          <td>
+            {% if u.id != current_user.id %}
+            <a href="{{ url_for('excluir_usuario', user_id=u.id) }}"
+               class="btn btn-sm btn-danger">
+               Excluir
+            </a>
+            {% else %}
+              —
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container mt-4">
+
+    <!-- TÍTULO + BOTÕES -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="fw-bold d-flex align-items-center gap-2">
+            <i class="bi bi-bar-chart-fill text-primary"></i>
+            Relatório de Ordens de Compra
+        </h4>
+
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('relatorios_excel') }}"
+               class="btn btn-success btn-sm">
+                <i class="bi bi-file-earmark-excel"></i> Excel
+            </a>
+
+            <a href="{{ url_for('relatorios_pdf') }}"
+               class="btn btn-danger btn-sm">
+                <i class="bi bi-file-earmark-pdf"></i> PDF
+            </a>
+        </div>
+    </div>
+
+    <!-- TABELA -->
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>ID</th>
+                        <th>Fornecedor</th>
+                        <th>Centro de Custo</th>
+                        <th>Valor</th>
+                        <th>Data da Compra</th>
+                        <th>Aprovador</th>
+                        <th>Data Aprovação</th>
+                        <th>Status</th>
+                        <th class="text-center">NF</th>
+                        <th class="text-center">Ações</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                {% for o in ordens %}
+                    <tr>
+                        <td>{{ o.id }}</td>
+                        <td>{{ o.fornecedor }}</td>
+                        <td>{{ o.centro_custo }}</td>
+                        <td>R$ {{ "%.2f"|format(o.valor) }}</td>
+
+                        <!-- DATA DA COMPRA -->
+                        <td>
+                            {% if o.data_compra %}
+                                {{ o.data_compra.strftime("%d/%m/%Y") }}
+                            {% else %}
+                                <form method="POST"
+                                      action="{{ url_for('salvar_data_compra', ordem_id=o.id) }}"
+                                      class="d-flex align-items-center gap-1">
+                                    <input type="date"
+                                           name="data_compra"
+                                           class="form-control form-control-sm"
+                                           required>
+                                    <button class="btn btn-sm btn-outline-primary"
+                                            title="Salvar data da compra">
+                                        💾
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </td>
+
+                        <td>{{ o.aprovado_por or "-" }}</td>
+
+                        <td>
+                            {{ o.aprovado_em.strftime("%d/%m/%Y") if o.aprovado_em else "-" }}
+                        </td>
+
+                        <!-- STATUS -->
+                        <td>
+                            {% if o.status == "Aprovada" %}
+                                <span class="badge bg-success">Aprovada</span>
+                            {% elif o.status == "Reprovada" %}
+                                <span class="badge bg-danger">Reprovada</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">Pendente</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- NOTA FISCAL -->
+                        <td class="text-center">
+                            {% if o.nota_fiscal %}
+                                <a href="{{ url_for('static', filename='notas_fiscais/' ~ o.nota_fiscal) }}"
+                                   target="_blank"
+                                   class="btn btn-sm btn-outline-primary"
+                                   title="Ver Nota Fiscal">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                            {% else %}
+                                <form method="POST"
+                                      action="{{ url_for('anexar_nf', ordem_id=o.id) }}"
+                                      enctype="multipart/form-data"
+                                      class="d-flex align-items-center gap-1 justify-content-center">
+                                    <input type="file"
+                                           name="nota_fiscal"
+                                           class="form-control form-control-sm"
+                                           style="max-width:130px"
+                                           required>
+                                    <button class="btn btn-sm btn-outline-secondary"
+                                            title="Anexar Nota Fiscal">
+                                        <i class="bi bi-paperclip"></i>
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </td>
+
+                        <!-- AÇÕES -->
+                        <td class="text-center">
+                            {% if current_user.is_authenticated and current_user.perfil == "admin" %}
+                                <form method="POST"
+                                      action="{{ url_for('excluir_ordem_relatorio', ordem_id=o.id) }}"
+                                      onsubmit="return confirm('Deseja excluir esta ordem?');">
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            title="Excluir Ordem">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+
+                    </tr>
+                {% endfor %}
+                </tbody>
+
+            </table>
+
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

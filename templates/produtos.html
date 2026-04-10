@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container mt-4" style="max-width: 1000px;">
+
+    <h3 class="fw-bold mb-4">Cadastro de Produtos</h3>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for categoria, mensagem in messages %}
+          <div class="alert alert-{{ categoria }}">
+            {{ mensagem }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- FORMULÁRIO -->
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <form method="POST">
+
+                <div class="row">
+
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label fw-bold">Nome do Produto</label>
+                        <input type="text"
+                               name="nome"
+                               class="form-control"
+d files via upload                               required>
+                    </div>
+
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label fw-bold">Estoque Atual</label>
+                        <input type="number"
+                               name="estoque_atual"
+                               class="form-control"
+                               min="0"
+                               required>
+                    </div>
+
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label fw-bold">Estoque Mínimo</label>
+                        <input type="number"
+                               name="estoque_minimo"
+                               class="form-control"
+                               min="0"
+                               required>
+                    </div>
+
+                    <div class="col-md-2 d-flex align-items-end mb-3">
+                        <button class="btn btn-primary w-100">
+                            Cadastrar
+                        </button>
+                    </div>
+
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+    <!-- TABELA -->
+    <div class="card shadow">
+        <div class="card-body p-0">
+
+            {% if produtos %}
+<table class="table table-striped mb-0">
+
+    <thead class="table-light">
+        <tr>
+            <th>Nome</th>
+            <th>Estoque Atual</th>
+            <th>Estoque Mínimo</th>
+            <th>Status</th>
+            <th class="text-center">Ação</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        {% for p in produtos %}
+        <tr>
+            <td>{{ p.nome }}</td>
+            <td>{{ p.estoque_atual }}</td>
+            <td>{{ p.estoque_minimo }}</td>
+            <td>
+                {% if p.estoque_atual <= p.estoque_minimo %}
+                    <span class="badge bg-danger">🔴 Crítico</span>
+                {% else %}
+                    <span class="badge bg-success">🟢 Normal</span>
+                {% endif %}
+            </td>
+
+            <td class="text-center">
+                <form method="POST"
+                      action="{{ url_for('excluir_produto', produto_id=p.id) }}"
+                      onsubmit="return confirm('Tem certeza que deseja excluir este produto?');">
+                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                        🗑 Excluir
+                    </button>
+                </form>
+            </td>
+
+        </tr>
+        {% endfor %}
+    </tbody>
+
+</table>
+
+{% else %}
+
+<div class="p-4 text-center text-muted">
+    Nenhum produto cadastrado.
+</div>
+
+{% endif %}
+
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}# ===============================
+# CONFIGURAÇÃO DE E-MAIL (ZOHO)
+# ===============================
+EMAIL_REMETENTE = "sistema@cqpcursos.com.br"
+EMAIL_DESTINO = "compras@cqpcursos.com.br"
+EMAIL_SMTP = "smtp.zoho.com"
+EMAIL_PORTA = 587
+EMAIL_SENHA = "2qYzMDt42aFA"
+def enviar_email_nova_ordem(ordem):
+    try:
+        msg = EmailMessage()
+        msg["From"] = EMAIL_REMETENTE
+        msg["To"] = EMAIL_DESTINO
+        msg["Subject"] = "Nova ordem de compra criada"

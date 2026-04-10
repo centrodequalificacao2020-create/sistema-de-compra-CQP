@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Auditoria{% endblock %}
+
+{% block content %}
+
+<h2 class="fw-bold mb-4">Log de Auditoria</h2>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Usuário</th>
+          <th>Ação</th>
+          <th>Detalhe</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for l in logs %}
+        <tr>
+          <td>{{ l.data.strftime("%d/%m/%Y %H:%M") }}</td>
+          <td>{{ l.usuario }}</td>
+          <td>{{ l.acao }}</td>
+          <td>{{ l.detalhe }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

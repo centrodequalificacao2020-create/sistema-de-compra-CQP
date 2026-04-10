@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container mt-4" style="max-width:600px;">
+
+    <h4 class="fw-bold mb-3">Editar Caixa / Centro de Custo</h4>
+
+    <form method="POST">
+
+        <div class="mb-3">
+            <label class="form-label">Nome da Caixa</label>
+            <input type="text"
+                   name="nome"
+                   class="form-control"
+                   value="{{ centro.nome }}"
+                   required>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Valor da Caixa (R$)</label>
+            <input type="number"
+                   step="0.01"
+                   name="saldo"
+                   class="form-control"
+                   value="{{ centro.saldo }}"
+                   required>
+        </div>
+
+        <button class="btn btn-primary">
+            Salvar
+        </button>
+
+        <a href="{{ url_for('financeiro') }}"
+           class="btn btn-secondary ms-2">
+            Cancelar
+        </a>
+
+    </form>
+</div>
+
+{% endblock %}

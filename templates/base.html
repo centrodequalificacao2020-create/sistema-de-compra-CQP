@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Centro de Qualificação Profissional</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+
+<body class="bg-light">
+
+<!-- NAVBAR -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
+    <div class="container-fluid">
+
+        <a class="navbar-brand fw-semibold" href="/dashboard">
+            <i class="bi bi-cart-check"></i> Centro de Qualificação Profissional
+        </a>
+
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="menu">
+            <ul class="navbar-nav ms-auto">
+
+                <li class="nav-item">
+                    <a class="nav-link" href="/dashboard">
+                        <i class="bi bi-speedometer2"></i> Dashboard
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" href="/ordens">
+                        <i class="bi bi-clipboard-check"></i> Ordens
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" href="/nova_ordem">
+                        <i class="bi bi-plus-circle"></i> Nova Ordem
+                    </a>
+                </li>
+
+                <!-- PRODUTOS -->
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('produtos') }}">
+                        📦 Produtos
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" href="/fornecedores">
+                        <i class="bi bi-truck"></i> Fornecedores
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" href="/funcionarios">
+                        <i class="bi bi-people"></i> Funcionários
+                    </a>
+                </li>
+
+                {% if current_user.is_authenticated and current_user.perfil == "admin" %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('financeiro') }}">
+                        <i class="bi bi-cash-coin"></i> Financeiro
+                    </a>
+                </li>
+                {% endif %}
+
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('relatorios') }}">
+                        <i class="bi bi-graph-up"></i> Relatórios
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" href="/logout">
+                        <i class="bi bi-box-arrow-right"></i> Sair
+                    </a>
+                </li>
+
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<!-- CONTEÚDO -->
+<main class="container-fluid mt-3">
+
+    {% if current_user.is_authenticated %}
+        <div class="text-muted mb-2" style="font-size: 0.75rem;">
+            Usuário logado: <strong>{{ current_user.nome }}</strong>
+        </div>
+    {% endif %}
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+
+</main>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>
