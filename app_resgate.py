@@ -41,7 +41,8 @@ EMAIL_REMETENTE = "sistema@cqpcursos.com.br"
 EMAIL_DESTINO = "compras@cqpcursos.com.br"
 EMAIL_SMTP = "smtp.zoho.com"
 EMAIL_PORTA = 587
-EMAIL_SENHA = "2qYzMDt42aFA"
+EMAIL_SENHA = os.environ.get("EMAIL_SENHA", "")
+
 def enviar_email_nova_ordem(ordem):
     try:
         msg = EmailMessage()
@@ -70,12 +71,12 @@ Sistema de Ordem de Compra - CQP
             server.send_message(msg)
 
     except Exception as e:
-        print("⚠️ Erro ao enviar e-mail:", e)
+        print("Erro ao enviar e-mail:", e)
 
 
 # ===============================
 # APP + CONFIG
-# =============================== 
+# ===============================
 app = Flask(
     __name__,
     template_folder="templates",
@@ -258,7 +259,7 @@ def dashboard():
         valores_centros=valores_centros,
         nomes_aprovadores_pendentes=nomes_aprovadores_pendentes,
         produtos_classificados=produtos_classificados,
-        paginacao=paginacao     
+        paginacao=paginacao
     )
 
 # ===============================
@@ -322,8 +323,8 @@ def excluir_funcionario(usuario_id):
 @login_required
 def financeiro():
 
-    if current_user.perfil != "admin":
-        flash("Acesso restrito ao administrador.", "danger")
+    if current_user.perfil not in ["admin", "financeiro"]:
+        flash("Acesso restrito.", "danger")
         return redirect(url_for("dashboard"))
 
     centros_custo = CentroCusto.query.order_by(CentroCusto.nome).all()
@@ -343,12 +344,13 @@ def financeiro():
 @app.route("/financeiro/aprovador/editar/<string:nome_aprovador>", methods=["POST"])
 @login_required
 def editar_saldo_aprovador(nome_aprovador):
+    if current_user.perfil not in ["admin", "financeiro"]:
+        abort(403)
     valor = float(request.form.get("saldo", 0))
     registro = SaldoAprovador.query.filter_by(nome_aprovador=nome_aprovador).first()
     if not registro:
         registro = SaldoAprovador(nome_aprovador=nome_aprovador, saldo=0)
         db.session.add(registro)
-
     registro.saldo = valor
     db.session.commit()
     return redirect(url_for("financeiro"))
@@ -356,11 +358,14 @@ def editar_saldo_aprovador(nome_aprovador):
 @app.route("/financeiro/centro_custo/editar/<int:centro_id>", methods=["POST"])
 @login_required
 def editar_saldo_centro_custo(centro_id):
+    if current_user.perfil not in ["admin", "financeiro"]:
+        abort(403)
     centro = CentroCusto.query.get_or_404(centro_id)
     centro.saldo = float(request.form.get("saldo", 0))
     db.session.commit()
     flash("Saldo do centro de custo atualizado.", "success")
     return redirect(url_for("financeiro"))
+
 # ===============================
 # EXCLUIR CENTRO DE CUSTO (ADMIN)
 # ===============================
@@ -373,14 +378,13 @@ def excluir_centro_custo_fin(centro_id):
 
     centro = CentroCusto.query.get_or_404(centro_id)
 
-    # Verifica se existe ordem usando este centro
     ordem_vinculada = OrdemCompra.query.filter_by(
         centro_custo=centro.nome
     ).first()
 
     if ordem_vinculada:
         flash(
-            "⚠️ Este centro de custo não pode ser excluído porque está vinculado a ordens.",
+            "Este centro de custo não pode ser excluído porque está vinculado a ordens.",
             "warning"
         )
         return redirect(url_for("fornecedores"))
@@ -427,12 +431,15 @@ def excluir_fornecedor(fornecedor_id):
     db.session.commit()
     flash("Fornecedor excluído com sucesso", "success")
     return redirect(url_for("fornecedores"))
+
 # ===============================
-# NOVO CENTRO DE CUSTO (SEGURANÇA)
+# NOVO CENTRO DE CUSTO
 # ===============================
 @app.route("/financeiro/centro_custo/novo", methods=["POST"])
 @login_required
 def novo_centro_custo():
+    if current_user.perfil not in ["admin", "financeiro"]:
+        abort(403)
     nome = request.form.get("nome")
     saldo = float(request.form.get("saldo", 0))
 
@@ -440,16 +447,11 @@ def novo_centro_custo():
         flash("Nome do centro de custo é obrigatório.", "warning")
         return redirect(url_for("financeiro"))
 
-    # Evita duplicidade
     if CentroCusto.query.filter_by(nome=nome).first():
         flash("Centro de custo já existe.", "warning")
         return redirect(url_for("financeiro"))
 
-    centro = CentroCusto(
-        nome=nome,
-        saldo=saldo
-    )
-
+    centro = CentroCusto(nome=nome, saldo=saldo)
     db.session.add(centro)
     db.session.commit()
 
@@ -473,16 +475,9 @@ def nova_ordem():
 
     fornecedores = Fornecedor.query.order_by(Fornecedor.nome).all()
     centros_custo = CentroCusto.query.order_by(CentroCusto.nome).all()
-    page = request.args.get("page", 1, type=int)
 
-    paginacao = Produto.query.order_by(Produto.nome).paginate(
-        page=page,
-        per_page=10,
-        error_out=False
-    )
-
-    produtos = paginacao.items
-    
+    # BUG 3 CORRIGIDO: carrega TODOS os produtos sem paginação
+    todos_produtos = Produto.query.order_by(Produto.nome).all()
 
     if request.method == "POST":
 
@@ -508,7 +503,7 @@ def nova_ordem():
             aprovador=aprovador,
             descricao_itens="",
             valor=0
-         )
+        )
 
         db.session.add(nova_ordem)
         db.session.flush()
@@ -559,16 +554,10 @@ def nova_ordem():
         flash("Ordem criada com sucesso.", "success")
         return redirect(url_for("ordens"))
 
-    # ===============================
     # GET
-    # ===============================
-
     produtos_json = [
-        {
-            "id": p.id,
-            "nome": p.nome
-        }
-        for p in produtos
+        {"id": p.id, "nome": p.nome}
+        for p in todos_produtos
     ]
 
     return render_template(
@@ -597,7 +586,6 @@ def aprovar(ordem_id):
         flash("Centro de custo sem saldo.", "danger")
         return redirect(url_for("ordens"))
 
-    # Desconta saldo financeiro
     saldo_aprovador.saldo -= valor
     centro.saldo -= valor
 
@@ -605,15 +593,10 @@ def aprovar(ordem_id):
     ordem.aprovado_por = current_user.nome
     ordem.aprovado_em = datetime.now()
 
-    # ===============================
-    # BAIXA AUTOMÁTICA DE ESTOQUE
-    # ===============================
     for item in ordem.itens:
         produto = item.produto
         if produto:
             produto.estoque_atual -= item.quantidade
-
-            # Segurança: evitar estoque negativo extremo
             if produto.estoque_atual < 0:
                 produto.estoque_atual = 0
 
@@ -687,6 +670,7 @@ def excluir_ordem_relatorio(ordem_id):
     db.session.commit()
     flash("Ordem excluída.", "success")
     return redirect(url_for("relatorios"))
+
 # ===============================
 # EXPORTAR EXCEL
 # ===============================
@@ -779,6 +763,7 @@ def salvar_data_compra(ordem_id):
         db.session.commit()
 
     return redirect(url_for("relatorios"))
+
 # ===============================
 # PRODUTOS (ESTOQUE)
 # ===============================
@@ -788,9 +773,6 @@ def produtos():
 
     if request.method == "POST":
 
-        # ===============================
-        # AJUSTE DE ESTOQUE
-        # ===============================
         if request.form.get("produto_id") and request.form.get("ajuste"):
 
             try:
@@ -811,9 +793,6 @@ def produtos():
 
             return redirect(url_for("produtos"))
 
-        # ===============================
-        # CADASTRO DE PRODUTO
-        # ===============================
         nome = request.form.get("nome")
         estoque_atual = int(request.form.get("estoque_atual", 0))
         estoque_minimo = int(request.form.get("estoque_minimo", 0))
@@ -838,9 +817,6 @@ def produtos():
         flash("Produto cadastrado com sucesso.", "success")
         return redirect(url_for("produtos"))
 
-    # ===============================
-    # GET
-    # ===============================
     lista_produtos = Produto.query.order_by(Produto.nome).all()
 
     return render_template(
@@ -849,7 +825,7 @@ def produtos():
     )
 
 # ===============================
-# EXCLUIR PRODUTO (COM ALERTA SIMPLES)
+# EXCLUIR PRODUTO
 # ===============================
 @app.route("/produtos/excluir/<int:produto_id>", methods=["POST"])
 @login_required
@@ -857,7 +833,6 @@ def excluir_produto(produto_id):
 
     produto = Produto.query.get_or_404(produto_id)
 
-    # Verifica se está vinculado a alguma ordem
     if ItemOrdem.query.filter_by(produto_id=produto_id).first():
         flash("Não é possível excluir este produto porque ele já foi utilizado em uma ordem de compra.", "warning")
         return redirect(url_for("produtos"))
@@ -867,6 +842,7 @@ def excluir_produto(produto_id):
 
     flash("Produto excluído com sucesso.", "success")
     return redirect(url_for("produtos"))
+
 # ===============================
 # START
 # ===============================
@@ -875,8 +851,3 @@ with app.app_context():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)
-
-
-
-
-
