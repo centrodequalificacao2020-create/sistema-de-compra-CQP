@@ -35,6 +35,9 @@ from models import (
 import smtplib
 from email.message import EmailMessage
 
+# Centro de custo que exige dupla aprovacao
+CENTRO_DUPLA_APROVACAO = "fundos_cqp"
+
 # ===============================
 # CONFIGURACAO DE E-MAIL (ZOHO)
 # ===============================
@@ -123,10 +126,12 @@ def logout():
 @app.route("/dashboard")
 @login_required
 def dashboard():
-    ordens_pendentes = OrdemCompra.query.filter_by(status="Pendente").all()
-    total_pendentes  = len(ordens_pendentes)
-    valor_pendente   = sum(float(o.valor or 0) for o in ordens_pendentes)
-    total_ordens     = OrdemCompra.query.count()
+    ordens_pendentes = OrdemCompra.query.filter(
+        OrdemCompra.status.in_(["Pendente", "Aguardando 2a Aprovacao"])
+    ).all()
+    total_pendentes = len(ordens_pendentes)
+    valor_pendente  = sum(float(o.valor or 0) for o in ordens_pendentes)
+    total_ordens    = OrdemCompra.query.count()
 
     aprovadores = (
         db.session.query(OrdemCompra.aprovador)
@@ -164,7 +169,7 @@ def dashboard():
     nomes_aprovadores_pendentes = [
         a[0] for a in (
             db.session.query(OrdemCompra.aprovador)
-            .filter(OrdemCompra.status == "Pendente")
+            .filter(OrdemCompra.status.in_(["Pendente", "Aguardando 2a Aprovacao"]))
             .filter(OrdemCompra.aprovador.isnot(None))
             .distinct().all()
         )
@@ -178,9 +183,9 @@ def dashboard():
     for p in paginacao.items:
         minimo = p.estoque_minimo or 0
         atual  = p.estoque_atual  or 0
-        if atual <= minimo:            status = "critico"
-        elif atual <= minimo * 1.3:    status = "atencao"
-        else:                          status = "normal"
+        if atual <= minimo:          status = "critico"
+        elif atual <= minimo * 1.3:  status = "atencao"
+        else:                        status = "normal"
         produtos_classificados.append({
             "nome": p.nome, "estoque_atual": atual,
             "estoque_minimo": minimo, "status": status
@@ -210,10 +215,10 @@ def dashboard():
 @login_required
 def funcionarios():
     if request.method == "POST":
-        nome   = request.form.get("nome")
-        email  = request.form.get("email")
-        senha  = request.form.get("senha")
-        perfil = request.form.get("perfil")
+        nome       = request.form.get("nome")
+        email      = request.form.get("email")
+        senha      = request.form.get("senha")
+        perfil     = request.form.get("perfil")
         limite_str = request.form.get("limite_aprovacao", "").strip()
 
         if not all([nome, email, senha, perfil]):
@@ -233,8 +238,7 @@ def funcionarios():
         db.session.add(Usuario(
             nome=nome, email=email,
             senha=generate_password_hash(senha),
-            perfil=perfil,
-            limite_aprovacao=limite
+            perfil=perfil, limite_aprovacao=limite
         ))
         db.session.commit()
         flash("Funcionario cadastrado com sucesso.", "success")
@@ -285,7 +289,7 @@ def financeiro():
 def editar_saldo_aprovador(nome_aprovador):
     if current_user.perfil not in ["admin", "financeiro"]:
         abort(403)
-    valor = float(request.form.get("saldo", 0))
+    valor    = float(request.form.get("saldo", 0))
     registro = SaldoAprovador.query.filter_by(nome_aprovador=nome_aprovador).first()
     if not registro:
         registro = SaldoAprovador(nome_aprovador=nome_aprovador, saldo=0)
@@ -322,8 +326,8 @@ def creditar_aprovador(nome_aprovador):
 def editar_saldo_centro_custo(centro_id):
     if current_user.perfil not in ["admin", "financeiro"]:
         abort(403)
-    centro = CentroCusto.query.get_or_404(centro_id)
-    centro.saldo = float(request.form.get("saldo", 0))
+    centro        = CentroCusto.query.get_or_404(centro_id)
+    centro.saldo  = float(request.form.get("saldo", 0))
     db.session.commit()
     flash(f"Saldo de '{centro.nome}' definido para R$ {centro.saldo:.2f}.", "success")
     return redirect(url_for("financeiro"))
@@ -431,7 +435,7 @@ def ordens():
     return render_template("ordens.html", ordens=lista, aprovadores=aprovadores)
 
 # ===============================
-# EDITAR APROVADOR DE ORDEM (BUG 9)
+# EDITAR APROVADOR DE ORDEM
 # ===============================
 @app.route("/ordens/editar_aprovador/<int:ordem_id>", methods=["POST"])
 @login_required
@@ -461,27 +465,22 @@ def nova_ordem():
     centros_custo_list = CentroCusto.query.order_by(CentroCusto.nome).all()
     todos_produtos     = Produto.query.order_by(Produto.nome).all()
 
-    # Aprovadores ordenados: limite finito crescente primeiro, sem limite por ultimo
-    aprovadores_com_limite    = (
-        Usuario.query
-        .filter_by(perfil="aprovador")
+    aprovadores_com_limite = (
+        Usuario.query.filter_by(perfil="aprovador")
         .filter(Usuario.limite_aprovacao.isnot(None))
-        .order_by(Usuario.limite_aprovacao.asc())
-        .all()
+        .order_by(Usuario.limite_aprovacao.asc()).all()
     )
     aprovadores_sem_limite = (
-        Usuario.query
-        .filter_by(perfil="aprovador")
+        Usuario.query.filter_by(perfil="aprovador")
         .filter(Usuario.limite_aprovacao.is_(None))
-        .order_by(Usuario.nome)
-        .all()
+        .order_by(Usuario.nome).all()
     )
     aprovadores_faixas = aprovadores_com_limite + aprovadores_sem_limite
 
     if request.method == "POST":
-        fornecedor   = request.form.get("fornecedor")
-        centro_custo = request.form.get("centro_custo")
-        aprovador    = request.form.get("aprovador")
+        fornecedor        = request.form.get("fornecedor")
+        centro_custo      = request.form.get("centro_custo")
+        aprovador         = request.form.get("aprovador")
         produtos_ids      = request.form.getlist("produto_id[]")
         quantidades       = request.form.getlist("quantidade[]")
         valores_unitarios = request.form.getlist("valor_unitario[]")
@@ -526,7 +525,7 @@ def nova_ordem():
             db.session.rollback()
             return redirect(url_for("nova_ordem"))
 
-        nova.valor          = total
+        nova.valor           = total
         nova.descricao_itens = "\n".join(descricao_auto)
         db.session.commit()
         flash("Ordem criada com sucesso.", "success")
@@ -542,15 +541,20 @@ def nova_ordem():
     )
 
 # ===============================
-# APROVAR / REPROVAR
+# 1a APROVACAO
 # ===============================
 @app.route("/aprovar/<int:ordem_id>", methods=["POST"])
 @login_required
 def aprovar(ordem_id):
     if current_user.perfil not in ["admin", "aprovador"]:
         abort(403)
+
     ordem = OrdemCompra.query.get_or_404(ordem_id)
-    valor = float(ordem.valor or 0)
+    if ordem.status != "Pendente":
+        flash("Esta ordem nao esta pendente.", "warning")
+        return redirect(url_for("ordens"))
+
+    valor    = float(ordem.valor or 0)
     saldo_ap = SaldoAprovador.query.filter_by(nome_aprovador=ordem.aprovador).first()
     if not saldo_ap or saldo_ap.saldo < valor:
         flash("Saldo insuficiente do aprovador.", "danger")
@@ -559,24 +563,91 @@ def aprovar(ordem_id):
     if not centro or (centro.saldo or 0) < valor:
         flash("Centro de custo sem saldo.", "danger")
         return redirect(url_for("ordens"))
+
+    # Debita saldo e registra 1a aprovacao
     saldo_ap.saldo -= valor
     centro.saldo   -= valor
-    ordem.status      = "Aprovada"
     ordem.aprovado_por = current_user.nome
     ordem.aprovado_em  = datetime.now()
-    for item in ordem.itens:
-        if item.produto:
-            item.produto.estoque_atual = max(0, (item.produto.estoque_atual or 0) - item.quantidade)
-    db.session.commit()
-    flash("Ordem aprovada com sucesso.", "success")
+
+    # Se centro exige dupla aprovacao, vai para estado intermediario
+    if (ordem.centro_custo or "").strip().lower() == CENTRO_DUPLA_APROVACAO.lower():
+        ordem.status = "Aguardando 2a Aprovacao"
+        # Designa admin como responsavel pela 2a aprovacao
+        admin = Usuario.query.filter_by(perfil="admin").first()
+        ordem.aprovador_2 = admin.nome if admin else "admin"
+        db.session.commit()
+        flash(
+            f"1a aprovacao registrada por {current_user.nome}. "
+            f"Ordem aguarda 2a aprovacao de {ordem.aprovador_2}.",
+            "info"
+        )
+    else:
+        # Aprovacao simples: finaliza
+        ordem.status = "Aprovada"
+        for item in ordem.itens:
+            if item.produto:
+                item.produto.estoque_atual = max(
+                    0, (item.produto.estoque_atual or 0) - item.quantidade
+                )
+        db.session.commit()
+        flash("Ordem aprovada com sucesso.", "success")
+
     return redirect(url_for("ordens"))
 
+# ===============================
+# 2a APROVACAO (FUNDOS_CQP)
+# ===============================
+@app.route("/ordens/segunda_aprovacao/<int:ordem_id>", methods=["POST"])
+@login_required
+def segunda_aprovacao(ordem_id):
+    if current_user.perfil not in ["admin", "aprovador"]:
+        abort(403)
+
+    ordem = OrdemCompra.query.get_or_404(ordem_id)
+    if ordem.status != "Aguardando 2a Aprovacao":
+        flash("Esta ordem nao esta aguardando 2a aprovacao.", "warning")
+        return redirect(url_for("ordens"))
+
+    # Nao permite que o mesmo usuario faca as duas aprovacoes
+    if ordem.aprovado_por == current_user.nome:
+        flash("Voce ja realizou a 1a aprovacao. A 2a aprovacao deve ser feita por outro usuario.", "danger")
+        return redirect(url_for("ordens"))
+
+    ordem.status        = "Aprovada"
+    ordem.aprovado_por_2 = current_user.nome
+    ordem.aprovado_em_2  = datetime.now()
+
+    for item in ordem.itens:
+        if item.produto:
+            item.produto.estoque_atual = max(
+                0, (item.produto.estoque_atual or 0) - item.quantidade
+            )
+
+    db.session.commit()
+    flash(f"2a aprovacao registrada por {current_user.nome}. Ordem finalizada.", "success")
+    return redirect(url_for("ordens"))
+
+# ===============================
+# REPROVAR
+# ===============================
 @app.route("/ordens/reprovar/<int:ordem_id>", methods=["POST"])
 @login_required
 def reprovar_ordem(ordem_id):
     if current_user.perfil not in ["admin", "aprovador"]:
         abort(403)
     ordem = OrdemCompra.query.get_or_404(ordem_id)
+
+    # Se ja houve 1a aprovacao (debito efetuado), estorna saldo
+    if ordem.aprovado_por and ordem.status == "Aguardando 2a Aprovacao":
+        valor    = float(ordem.valor or 0)
+        saldo_ap = SaldoAprovador.query.filter_by(nome_aprovador=ordem.aprovador).first()
+        centro   = CentroCusto.query.filter_by(nome=ordem.centro_custo).first()
+        if saldo_ap:
+            saldo_ap.saldo = (saldo_ap.saldo or 0) + valor
+        if centro:
+            centro.saldo = (centro.saldo or 0) + valor
+
     ordem.status       = "Reprovada"
     ordem.aprovado_por = current_user.nome
     ordem.aprovado_em  = datetime.now()
@@ -736,14 +807,14 @@ def produtos():
     return render_template("produtos.html", produtos=Produto.query.order_by(Produto.nome).all())
 
 # ===============================
-# EDITAR PRODUTO (BUG 7)
+# EDITAR PRODUTO
 # ===============================
 @app.route("/produtos/editar/<int:produto_id>", methods=["POST"])
 @login_required
 def editar_produto(produto_id):
     if current_user.perfil not in ["admin", "financeiro"]:
         abort(403)
-    produto = Produto.query.get_or_404(produto_id)
+    produto        = Produto.query.get_or_404(produto_id)
     nome           = request.form.get("nome", "").strip()
     estoque_atual  = request.form.get("estoque_atual", "")
     estoque_minimo = request.form.get("estoque_minimo", "")
@@ -784,13 +855,19 @@ def excluir_produto(produto_id):
 # ===============================
 with app.app_context():
     db.create_all()
-    # Migration inline: adiciona limite_aprovacao se ainda nao existir (SQLite)
-    try:
-        db.session.execute(text("ALTER TABLE usuarios ADD COLUMN limite_aprovacao REAL"))
-        db.session.commit()
-        print("Migration: coluna limite_aprovacao adicionada.")
-    except Exception:
-        pass  # Coluna ja existe
+    # Migrations inline (SQLite nao suporta ALTER TABLE automatico)
+    migrations = [
+        "ALTER TABLE usuarios ADD COLUMN limite_aprovacao REAL",
+        "ALTER TABLE ordens_compra ADD COLUMN aprovador_2 TEXT",
+        "ALTER TABLE ordens_compra ADD COLUMN aprovado_por_2 TEXT",
+        "ALTER TABLE ordens_compra ADD COLUMN aprovado_em_2 DATETIME",
+    ]
+    for sql in migrations:
+        try:
+            db.session.execute(text(sql))
+            db.session.commit()
+        except Exception:
+            pass  # Coluna ja existe
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)
