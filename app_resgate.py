@@ -17,7 +17,7 @@ from flask_login import (
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from sqlalchemy import func
+from sqlalchemy import func, text
 from datetime import datetime
 import os
 
@@ -39,24 +39,23 @@ from email.message import EmailMessage
 # CONFIGURACAO DE E-MAIL (ZOHO)
 # ===============================
 EMAIL_REMETENTE = "sistema@cqpcursos.com.br"
-EMAIL_DESTINO = "compras@cqpcursos.com.br"
-EMAIL_SMTP = "smtp.zoho.com"
-EMAIL_PORTA = 587
-EMAIL_SENHA = os.environ.get("EMAIL_SENHA", "")
+EMAIL_DESTINO   = "compras@cqpcursos.com.br"
+EMAIL_SMTP      = "smtp.zoho.com"
+EMAIL_PORTA     = 587
+EMAIL_SENHA     = os.environ.get("EMAIL_SENHA", "")
 
 def enviar_email_nova_ordem(ordem):
     try:
         msg = EmailMessage()
-        msg["From"] = EMAIL_REMETENTE
-        msg["To"] = EMAIL_DESTINO
+        msg["From"]    = EMAIL_REMETENTE
+        msg["To"]      = EMAIL_DESTINO
         msg["Subject"] = "Nova ordem de compra criada"
-        corpo = (
+        msg.set_content(
             f"Fornecedor: {ordem.fornecedor}\n"
             f"Centro de Custo: {ordem.centro_custo}\n"
             f"Valor: R$ {float(ordem.valor or 0):.2f}\n"
             f"Aprovador: {ordem.aprovador}\n"
         )
-        msg.set_content(corpo)
         with smtplib.SMTP(EMAIL_SMTP, EMAIL_PORTA) as server:
             server.starttls()
             server.login(EMAIL_REMETENTE, EMAIL_SENHA)
@@ -80,10 +79,10 @@ if os.environ.get("WEBSITE_SITE_NAME"):
     DB_PATH = "/home/ordem_compra.db"
 else:
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-    DB_PATH = os.path.join(BASE_DIR, "instance", "ordem_compra.db")
+    DB_PATH  = os.path.join(BASE_DIR, "instance", "ordem_compra.db")
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
-app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{DB_PATH}"
+app.config["SQLALCHEMY_DATABASE_URI"]        = f"sqlite:///{DB_PATH}"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db.init_app(app)
@@ -125,16 +124,15 @@ def logout():
 @login_required
 def dashboard():
     ordens_pendentes = OrdemCompra.query.filter_by(status="Pendente").all()
-    total_pendentes = len(ordens_pendentes)
-    valor_pendente = sum(float(o.valor or 0) for o in ordens_pendentes)
-    total_ordens = OrdemCompra.query.count()
+    total_pendentes  = len(ordens_pendentes)
+    valor_pendente   = sum(float(o.valor or 0) for o in ordens_pendentes)
+    total_ordens     = OrdemCompra.query.count()
 
     aprovadores = (
         db.session.query(OrdemCompra.aprovador)
         .filter(OrdemCompra.aprovador.isnot(None))
         .distinct().all()
     )
-
     saldos_aprovadores = (
         db.session.query(SaldoAprovador)
         .join(Usuario, Usuario.nome == SaldoAprovador.nome_aprovador)
@@ -142,14 +140,11 @@ def dashboard():
         .order_by(SaldoAprovador.nome_aprovador)
         .all()
     )
-
     centros_custo = [
-        c[0] for c in db.session.query(OrdemCompra.centro_custo)
-        .distinct().all() if c[0]
+        c[0] for c in db.session.query(OrdemCompra.centro_custo).distinct().all() if c[0]
     ]
     fornecedores = [
-        f[0] for f in db.session.query(OrdemCompra.fornecedor)
-        .distinct().all() if f[0]
+        f[0] for f in db.session.query(OrdemCompra.fornecedor).distinct().all() if f[0]
     ]
 
     from sqlalchemy import extract
@@ -163,7 +158,7 @@ def dashboard():
         .group_by(OrdemCompra.centro_custo)
         .all()
     )
-    labels_centros = [g[0] for g in gastos_por_centro]
+    labels_centros  = [g[0] for g in gastos_por_centro]
     valores_centros = [float(g[1] or 0) for g in gastos_por_centro]
 
     nomes_aprovadores_pendentes = [
@@ -182,18 +177,13 @@ def dashboard():
     produtos_classificados = []
     for p in paginacao.items:
         minimo = p.estoque_minimo or 0
-        atual = p.estoque_atual or 0
-        if atual <= minimo:
-            status = "critico"
-        elif atual <= minimo * 1.3:
-            status = "atencao"
-        else:
-            status = "normal"
+        atual  = p.estoque_atual  or 0
+        if atual <= minimo:            status = "critico"
+        elif atual <= minimo * 1.3:    status = "atencao"
+        else:                          status = "normal"
         produtos_classificados.append({
-            "nome": p.nome,
-            "estoque_atual": atual,
-            "estoque_minimo": minimo,
-            "status": status
+            "nome": p.nome, "estoque_atual": atual,
+            "estoque_minimo": minimo, "status": status
         })
 
     return render_template(
@@ -224,19 +214,32 @@ def funcionarios():
         email  = request.form.get("email")
         senha  = request.form.get("senha")
         perfil = request.form.get("perfil")
+        limite_str = request.form.get("limite_aprovacao", "").strip()
+
         if not all([nome, email, senha, perfil]):
             flash("Preencha todos os campos.", "warning")
             return redirect(url_for("funcionarios"))
         if Usuario.query.filter_by(email=email).first():
             flash("Email ja cadastrado.", "warning")
             return redirect(url_for("funcionarios"))
+
+        limite = None
+        if perfil == "aprovador" and limite_str:
+            try:
+                limite = float(limite_str)
+            except ValueError:
+                pass
+
         db.session.add(Usuario(
             nome=nome, email=email,
-            senha=generate_password_hash(senha), perfil=perfil
+            senha=generate_password_hash(senha),
+            perfil=perfil,
+            limite_aprovacao=limite
         ))
         db.session.commit()
         flash("Funcionario cadastrado com sucesso.", "success")
         return redirect(url_for("funcionarios"))
+
     usuarios = Usuario.query.order_by(Usuario.id.desc()).all()
     return render_template("funcionarios.html", funcionarios=usuarios)
 
@@ -267,8 +270,8 @@ def financeiro():
     if current_user.perfil not in ["admin", "financeiro"]:
         flash("Acesso restrito.", "danger")
         return redirect(url_for("dashboard"))
-    centros_custo    = CentroCusto.query.order_by(CentroCusto.nome).all()
-    aprovadores      = Usuario.query.filter_by(perfil="aprovador").order_by(Usuario.nome).all()
+    centros_custo      = CentroCusto.query.order_by(CentroCusto.nome).all()
+    aprovadores        = Usuario.query.filter_by(perfil="aprovador").order_by(Usuario.nome).all()
     saldos_aprovadores = {s.nome_aprovador: s for s in SaldoAprovador.query.all()}
     return render_template(
         "financeiro.html",
@@ -345,7 +348,7 @@ def creditar_centro_custo(centro_id):
     return redirect(url_for("financeiro"))
 
 # ===============================
-# EXCLUIR CENTRO DE CUSTO (ADMIN)
+# EXCLUIR CENTRO DE CUSTO
 # ===============================
 @app.route("/centro_custo/excluir/<int:centro_id>", methods=["POST"])
 @login_required
@@ -423,7 +426,7 @@ def novo_centro_custo():
 @app.route("/ordens")
 @login_required
 def ordens():
-    lista   = OrdemCompra.query.order_by(OrdemCompra.id.desc()).all()
+    lista       = OrdemCompra.query.order_by(OrdemCompra.id.desc()).all()
     aprovadores = Usuario.query.filter_by(perfil="aprovador").order_by(Usuario.nome).all()
     return render_template("ordens.html", ordens=lista, aprovadores=aprovadores)
 
@@ -448,20 +451,40 @@ def editar_aprovador_ordem(ordem_id):
     flash(f"Aprovador da ordem #{ordem_id} atualizado para {novo_aprovador}.", "success")
     return redirect(url_for("ordens"))
 
+# ===============================
+# NOVA ORDEM
+# ===============================
 @app.route("/nova_ordem", methods=["GET", "POST"])
 @login_required
 def nova_ordem():
-    fornecedores  = Fornecedor.query.order_by(Fornecedor.nome).all()
-    centros_custo = CentroCusto.query.order_by(CentroCusto.nome).all()
-    todos_produtos = Produto.query.order_by(Produto.nome).all()
+    fornecedores_list  = Fornecedor.query.order_by(Fornecedor.nome).all()
+    centros_custo_list = CentroCusto.query.order_by(CentroCusto.nome).all()
+    todos_produtos     = Produto.query.order_by(Produto.nome).all()
+
+    # Aprovadores ordenados: limite finito crescente primeiro, sem limite por ultimo
+    aprovadores_com_limite    = (
+        Usuario.query
+        .filter_by(perfil="aprovador")
+        .filter(Usuario.limite_aprovacao.isnot(None))
+        .order_by(Usuario.limite_aprovacao.asc())
+        .all()
+    )
+    aprovadores_sem_limite = (
+        Usuario.query
+        .filter_by(perfil="aprovador")
+        .filter(Usuario.limite_aprovacao.is_(None))
+        .order_by(Usuario.nome)
+        .all()
+    )
+    aprovadores_faixas = aprovadores_com_limite + aprovadores_sem_limite
 
     if request.method == "POST":
         fornecedor   = request.form.get("fornecedor")
         centro_custo = request.form.get("centro_custo")
         aprovador    = request.form.get("aprovador")
-        produtos_ids       = request.form.getlist("produto_id[]")
-        quantidades        = request.form.getlist("quantidade[]")
-        valores_unitarios  = request.form.getlist("valor_unitario[]")
+        produtos_ids      = request.form.getlist("produto_id[]")
+        quantidades       = request.form.getlist("quantidade[]")
+        valores_unitarios = request.form.getlist("valor_unitario[]")
 
         if not fornecedor or not centro_custo:
             flash("Fornecedor e Centro de Custo sao obrigatorios.", "warning")
@@ -503,7 +526,7 @@ def nova_ordem():
             db.session.rollback()
             return redirect(url_for("nova_ordem"))
 
-        nova.valor = total
+        nova.valor          = total
         nova.descricao_itens = "\n".join(descricao_auto)
         db.session.commit()
         flash("Ordem criada com sucesso.", "success")
@@ -512,9 +535,10 @@ def nova_ordem():
     produtos_json = [{"id": p.id, "nome": p.nome} for p in todos_produtos]
     return render_template(
         "nova_ordem.html",
-        fornecedores=fornecedores,
-        centros_custo=centros_custo,
-        produtos=produtos_json
+        fornecedores=fornecedores_list,
+        centros_custo=centros_custo_list,
+        produtos=produtos_json,
+        aprovadores_faixas=aprovadores_faixas
     )
 
 # ===============================
@@ -535,9 +559,9 @@ def aprovar(ordem_id):
     if not centro or (centro.saldo or 0) < valor:
         flash("Centro de custo sem saldo.", "danger")
         return redirect(url_for("ordens"))
-    saldo_ap.saldo  -= valor
-    centro.saldo    -= valor
-    ordem.status     = "Aprovada"
+    saldo_ap.saldo -= valor
+    centro.saldo   -= valor
+    ordem.status      = "Aprovada"
     ordem.aprovado_por = current_user.nome
     ordem.aprovado_em  = datetime.now()
     for item in ordem.itens:
@@ -618,16 +642,15 @@ def excluir_ordem_relatorio(ordem_id):
 @login_required
 def relatorios_excel():
     ordens = OrdemCompra.query.order_by(OrdemCompra.id.desc()).all()
-    dados = [{
-        "ID": o.id,
-        "Fornecedor": o.fornecedor,
+    dados  = [{
+        "ID": o.id, "Fornecedor": o.fornecedor,
         "Centro de Custo": o.centro_custo,
         "Valor (R$)": float(o.valor or 0),
         "Aprovador": o.aprovado_por or "",
         "Data da Compra": o.data_compra.strftime("%d/%m/%Y") if o.data_compra else "",
         "Status": o.status
     } for o in ordens]
-    df = pd.DataFrame(dados)
+    df     = pd.DataFrame(dados)
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Ordens")
@@ -703,7 +726,9 @@ def produtos():
         if Produto.query.filter_by(nome=nome).first():
             flash("Produto ja cadastrado.", "warning")
             return redirect(url_for("produtos"))
-        db.session.add(Produto(nome=nome, estoque_atual=estoque_atual, estoque_minimo=estoque_minimo))
+        db.session.add(Produto(
+            nome=nome, estoque_atual=estoque_atual, estoque_minimo=estoque_minimo
+        ))
         db.session.commit()
         flash("Produto cadastrado com sucesso.", "success")
         return redirect(url_for("produtos"))
@@ -759,6 +784,13 @@ def excluir_produto(produto_id):
 # ===============================
 with app.app_context():
     db.create_all()
+    # Migration inline: adiciona limite_aprovacao se ainda nao existir (SQLite)
+    try:
+        db.session.execute(text("ALTER TABLE usuarios ADD COLUMN limite_aprovacao REAL"))
+        db.session.commit()
+        print("Migration: coluna limite_aprovacao adicionada.")
+    except Exception:
+        pass  # Coluna ja existe
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)
