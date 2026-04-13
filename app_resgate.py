@@ -204,7 +204,6 @@ def dashboard():
     )
 
     produtos = paginacao.items
-
     produtos_classificados = []
 
     for p in produtos:
@@ -354,7 +353,6 @@ def excluir_centro_custo_fin(centro_id):
         abort(403)
 
     centro = CentroCusto.query.get_or_404(centro_id)
-
     ordem_vinculada = OrdemCompra.query.filter_by(centro_custo=centro.nome).first()
     if ordem_vinculada:
         flash("Este centro de custo não pode ser excluído porque está vinculado a ordens.", "warning")
@@ -639,7 +637,6 @@ def excluir_ordem_relatorio(ordem_id):
 
 # ===============================
 # EXPORTAR EXCEL
-# BUG 5 CORRIGIDO: gerado em memória com BytesIO, sem gravar em disco
 # ===============================
 @app.route("/relatorios/excel")
 @login_required
@@ -681,7 +678,6 @@ def relatorios_excel():
 def relatorios_pdf():
 
     ordens = OrdemCompra.query.order_by(OrdemCompra.id.desc()).all()
-
     caminho = os.path.join(os.getcwd(), "relatorio_ordens.pdf")
 
     doc = SimpleDocTemplate(caminho, pagesize=A4)
@@ -777,6 +773,42 @@ def produtos():
 
     lista_produtos = Produto.query.order_by(Produto.nome).all()
     return render_template("produtos.html", produtos=lista_produtos)
+
+# ===============================
+# EDITAR PRODUTO (BUG 7)
+# ===============================
+@app.route("/produtos/editar/<int:produto_id>", methods=["POST"])
+@login_required
+def editar_produto(produto_id):
+    if current_user.perfil not in ["admin", "financeiro"]:
+        abort(403)
+
+    produto = Produto.query.get_or_404(produto_id)
+
+    nome = request.form.get("nome", "").strip()
+    estoque_atual = request.form.get("estoque_atual", "")
+    estoque_minimo = request.form.get("estoque_minimo", "")
+
+    if not nome:
+        flash("Nome do produto é obrigatório.", "warning")
+        return redirect(url_for("produtos"))
+
+    # Verifica duplicata de nome em outro produto
+    outro = Produto.query.filter_by(nome=nome).first()
+    if outro and outro.id != produto_id:
+        flash("Já existe outro produto com esse nome.", "warning")
+        return redirect(url_for("produtos"))
+
+    try:
+        produto.nome = nome
+        produto.estoque_atual = int(estoque_atual)
+        produto.estoque_minimo = int(estoque_minimo)
+        db.session.commit()
+        flash("Produto atualizado com sucesso.", "success")
+    except (ValueError, TypeError):
+        flash("Valores de estoque inválidos.", "danger")
+
+    return redirect(url_for("produtos"))
 
 # ===============================
 # EXCLUIR PRODUTO
