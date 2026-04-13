@@ -20,7 +20,7 @@
     <div class="container-fluid">
 
         <a class="navbar-brand fw-semibold" href="/dashboard">
-            <i class="bi bi-cart-check"></i> Centro de Qualificação Profissional
+            Centro de Qualificação Profissional
         </a>
 
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menu">
@@ -31,60 +31,41 @@
             <ul class="navbar-nav ms-auto">
 
                 <li class="nav-item">
-                    <a class="nav-link" href="/dashboard">
-                        <i class="bi bi-speedometer2"></i> Dashboard
-                    </a>
+                    <a class="nav-link" href="/dashboard">Dashboard</a>
                 </li>
 
                 <li class="nav-item">
-                    <a class="nav-link" href="/ordens">
-                        <i class="bi bi-clipboard-check"></i> Ordens
-                    </a>
+                    <a class="nav-link" href="/ordens">Ordens</a>
                 </li>
 
                 <li class="nav-item">
-                    <a class="nav-link" href="/nova_ordem">
-                        <i class="bi bi-plus-circle"></i> Nova Ordem
-                    </a>
-                </li>
-
-                <!-- PRODUTOS -->
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('produtos') }}">
-                        📦 Produtos
-                    </a>
+                    <a class="nav-link" href="/nova_ordem">Nova Ordem</a>
                 </li>
 
                 <li class="nav-item">
-                    <a class="nav-link" href="/fornecedores">
-                        <i class="bi bi-truck"></i> Fornecedores
-                    </a>
+                    <a class="nav-link" href="{{ url_for('produtos') }}">Produtos</a>
                 </li>
 
                 <li class="nav-item">
-                    <a class="nav-link" href="/funcionarios">
-                        <i class="bi bi-people"></i> Funcionários
-                    </a>
+                    <a class="nav-link" href="/fornecedores">Fornecedores</a>
                 </li>
 
-                {% if current_user.is_authenticated and current_user.perfil == "admin" %}
                 <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('financeiro') }}">
-                        <i class="bi bi-cash-coin"></i> Financeiro
-                    </a>
+                    <a class="nav-link" href="/funcionarios">Funcionários</a>
+                </li>
+
+                {% if current_user.is_authenticated and current_user.perfil in ["admin", "financeiro"] %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('financeiro') }}">Financeiro</a>
                 </li>
                 {% endif %}
 
                 <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('relatorios') }}">
-                        <i class="bi bi-graph-up"></i> Relatórios
-                    </a>
+                    <a class="nav-link" href="{{ url_for('relatorios') }}">Relatórios</a>
                 </li>
 
                 <li class="nav-item">
-                    <a class="nav-link" href="/logout">
-                        <i class="bi bi-box-arrow-right"></i> Sair
-                    </a>
+                    <a class="nav-link" href="/logout">Sair</a>
                 </li>
 
             </ul>
