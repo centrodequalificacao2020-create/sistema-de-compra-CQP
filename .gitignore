@@ -1,1 +1,39 @@
-/venv
+# Ambientes virtuais
+venv/
+.venv/
+.env
+*.env
+
+# Banco de dados
+*.db
+*.sqlite
+*.sqlite3
+instance/
+
+# Arquivos gerados em runtime
+relatorio_ordens.pdf
+relatorio_ordens.xlsx
+exports/
+*.zip
+
+# Cache Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Notas fiscais enviadas
+static/notas_fiscais/
+
+# IDEs e editores
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
