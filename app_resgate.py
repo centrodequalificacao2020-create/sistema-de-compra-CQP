@@ -36,7 +36,7 @@ import smtplib
 from email.message import EmailMessage
 
 # ===============================
-# CONFIGURAÇÃO DE E-MAIL (ZOHO)
+# CONFIGURACAO DE E-MAIL (ZOHO)
 # ===============================
 EMAIL_REMETENTE = "sistema@cqpcursos.com.br"
 EMAIL_DESTINO = "compras@cqpcursos.com.br"
@@ -50,27 +50,17 @@ def enviar_email_nova_ordem(ordem):
         msg["From"] = EMAIL_REMETENTE
         msg["To"] = EMAIL_DESTINO
         msg["Subject"] = "Nova ordem de compra criada"
-
-        corpo = f"""
-Olá,
-
-Uma nova ordem de compra foi criada e aguarda aprovação.
-
-Fornecedor: {ordem.fornecedor}
-Centro de Custo: {ordem.centro_custo}
-Valor: R$ {float(ordem.valor or 0):.2f}
-Aprovador: {ordem.aprovador}
-
-Sistema de Ordem de Compra - CQP
-        """
-
+        corpo = (
+            f"Fornecedor: {ordem.fornecedor}\n"
+            f"Centro de Custo: {ordem.centro_custo}\n"
+            f"Valor: R$ {float(ordem.valor or 0):.2f}\n"
+            f"Aprovador: {ordem.aprovador}\n"
+        )
         msg.set_content(corpo)
-
         with smtplib.SMTP(EMAIL_SMTP, EMAIL_PORTA) as server:
             server.starttls()
             server.login(EMAIL_REMETENTE, EMAIL_SENHA)
             server.send_message(msg)
-
     except Exception as e:
         print("Erro ao enviar e-mail:", e)
 
@@ -119,7 +109,7 @@ def login():
         if usuario and check_password_hash(usuario.senha, request.form["senha"]):
             login_user(usuario)
             return redirect(url_for("dashboard"))
-        flash("Email ou senha inválidos", "danger")
+        flash("Email ou senha invalidos", "danger")
     return render_template("login.html")
 
 @app.route("/logout")
@@ -134,18 +124,15 @@ def logout():
 @app.route("/dashboard")
 @login_required
 def dashboard():
-
     ordens_pendentes = OrdemCompra.query.filter_by(status="Pendente").all()
     total_pendentes = len(ordens_pendentes)
     valor_pendente = sum(float(o.valor or 0) for o in ordens_pendentes)
-
     total_ordens = OrdemCompra.query.count()
 
     aprovadores = (
         db.session.query(OrdemCompra.aprovador)
         .filter(OrdemCompra.aprovador.isnot(None))
-        .distinct()
-        .all()
+        .distinct().all()
     )
 
     saldos_aprovadores = (
@@ -160,7 +147,6 @@ def dashboard():
         c[0] for c in db.session.query(OrdemCompra.centro_custo)
         .distinct().all() if c[0]
     ]
-
     fornecedores = [
         f[0] for f in db.session.query(OrdemCompra.fornecedor)
         .distinct().all() if f[0]
@@ -168,12 +154,8 @@ def dashboard():
 
     from sqlalchemy import extract
     ano_atual = datetime.now().year
-
     gastos_por_centro = (
-        db.session.query(
-            OrdemCompra.centro_custo,
-            func.sum(OrdemCompra.valor)
-        )
+        db.session.query(OrdemCompra.centro_custo, func.sum(OrdemCompra.valor))
         .filter(OrdemCompra.status == "Aprovada")
         .filter(OrdemCompra.centro_custo.isnot(None))
         .filter(OrdemCompra.centro_custo != "")
@@ -181,42 +163,32 @@ def dashboard():
         .group_by(OrdemCompra.centro_custo)
         .all()
     )
-
     labels_centros = [g[0] for g in gastos_por_centro]
     valores_centros = [float(g[1] or 0) for g in gastos_por_centro]
 
-    aprovadores_pendentes = (
-        db.session.query(OrdemCompra.aprovador)
-        .filter(OrdemCompra.status == "Pendente")
-        .filter(OrdemCompra.aprovador.isnot(None))
-        .distinct()
-        .all()
-    )
-
-    nomes_aprovadores_pendentes = [a[0] for a in aprovadores_pendentes]
+    nomes_aprovadores_pendentes = [
+        a[0] for a in (
+            db.session.query(OrdemCompra.aprovador)
+            .filter(OrdemCompra.status == "Pendente")
+            .filter(OrdemCompra.aprovador.isnot(None))
+            .distinct().all()
+        )
+    ]
 
     page = request.args.get("page", 1, type=int)
-
     paginacao = Produto.query.order_by(Produto.nome).paginate(
-        page=page,
-        per_page=10,
-        error_out=False
+        page=page, per_page=10, error_out=False
     )
-
-    produtos = paginacao.items
     produtos_classificados = []
-
-    for p in produtos:
+    for p in paginacao.items:
         minimo = p.estoque_minimo or 0
         atual = p.estoque_atual or 0
-
         if atual <= minimo:
             status = "critico"
         elif atual <= minimo * 1.3:
             status = "atencao"
         else:
             status = "normal"
-
         produtos_classificados.append({
             "nome": p.nome,
             "estoque_atual": atual,
@@ -242,44 +214,36 @@ def dashboard():
     )
 
 # ===============================
-# FUNCIONÁRIOS
+# FUNCIONARIOS
 # ===============================
 @app.route("/funcionarios", methods=["GET", "POST"])
 @login_required
 def funcionarios():
     if request.method == "POST":
-        nome = request.form.get("nome")
-        email = request.form.get("email")
-        senha = request.form.get("senha")
+        nome   = request.form.get("nome")
+        email  = request.form.get("email")
+        senha  = request.form.get("senha")
         perfil = request.form.get("perfil")
-
-        if not nome or not email or not senha or not perfil:
+        if not all([nome, email, senha, perfil]):
             flash("Preencha todos os campos.", "warning")
             return redirect(url_for("funcionarios"))
-
         if Usuario.query.filter_by(email=email).first():
-            flash("Email já cadastrado.", "warning")
+            flash("Email ja cadastrado.", "warning")
             return redirect(url_for("funcionarios"))
-
-        usuario = Usuario(
-            nome=nome,
-            email=email,
-            senha=generate_password_hash(senha),
-            perfil=perfil
-        )
-        db.session.add(usuario)
+        db.session.add(Usuario(
+            nome=nome, email=email,
+            senha=generate_password_hash(senha), perfil=perfil
+        ))
         db.session.commit()
-
-        flash("Funcionário cadastrado com sucesso.", "success")
+        flash("Funcionario cadastrado com sucesso.", "success")
         return redirect(url_for("funcionarios"))
-
     usuarios = Usuario.query.order_by(Usuario.id.desc()).all()
     return render_template("funcionarios.html", funcionarios=usuarios)
 
 @app.route("/funcionarios/editar/<int:usuario_id>")
 @login_required
 def editar_funcionario(usuario_id):
-    flash("Edição de funcionário será habilitada futuramente.", "info")
+    flash("Edicao de funcionario sera habilitada futuramente.", "info")
     return redirect(url_for("funcionarios"))
 
 @app.route("/funcionarios/excluir/<int:usuario_id>", methods=["POST"])
@@ -287,12 +251,11 @@ def editar_funcionario(usuario_id):
 def excluir_funcionario(usuario_id):
     usuario = Usuario.query.get_or_404(usuario_id)
     if usuario.id == current_user.id:
-        flash("Você não pode excluir seu próprio usuário.", "danger")
+        flash("Voce nao pode excluir seu proprio usuario.", "danger")
         return redirect(url_for("funcionarios"))
-
     db.session.delete(usuario)
     db.session.commit()
-    flash("Funcionário excluído com sucesso.", "success")
+    flash("Funcionario excluido com sucesso.", "success")
     return redirect(url_for("funcionarios"))
 
 # ===============================
@@ -304,13 +267,9 @@ def financeiro():
     if current_user.perfil not in ["admin", "financeiro"]:
         flash("Acesso restrito.", "danger")
         return redirect(url_for("dashboard"))
-
-    centros_custo = CentroCusto.query.order_by(CentroCusto.nome).all()
-    aprovadores = Usuario.query.filter_by(perfil="aprovador").order_by(Usuario.nome).all()
-    saldos_aprovadores = {
-        s.nome_aprovador: s for s in SaldoAprovador.query.all()
-    }
-
+    centros_custo    = CentroCusto.query.order_by(CentroCusto.nome).all()
+    aprovadores      = Usuario.query.filter_by(perfil="aprovador").order_by(Usuario.nome).all()
+    saldos_aprovadores = {s.nome_aprovador: s for s in SaldoAprovador.query.all()}
     return render_template(
         "financeiro.html",
         centros_custo=centros_custo,
@@ -333,9 +292,6 @@ def editar_saldo_aprovador(nome_aprovador):
     flash(f"Saldo de {nome_aprovador} definido para R$ {valor:.2f}.", "success")
     return redirect(url_for("financeiro"))
 
-# ===============================
-# CREDITAR APROVADOR (INCREMENTAL)
-# ===============================
 @app.route("/financeiro/aprovador/creditar/<string:nome_aprovador>", methods=["POST"])
 @login_required
 def creditar_aprovador(nome_aprovador):
@@ -344,10 +300,10 @@ def creditar_aprovador(nome_aprovador):
     try:
         credito = float(request.form.get("credito", 0))
     except (ValueError, TypeError):
-        flash("Valor de crédito inválido.", "danger")
+        flash("Valor de credito invalido.", "danger")
         return redirect(url_for("financeiro"))
     if credito <= 0:
-        flash("O valor de crédito deve ser maior que zero.", "warning")
+        flash("O valor de credito deve ser maior que zero.", "warning")
         return redirect(url_for("financeiro"))
     registro = SaldoAprovador.query.filter_by(nome_aprovador=nome_aprovador).first()
     if not registro:
@@ -355,7 +311,7 @@ def creditar_aprovador(nome_aprovador):
         db.session.add(registro)
     registro.saldo = (registro.saldo or 0) + credito
     db.session.commit()
-    flash(f"R$ {credito:.2f} adicionados ao saldo de {nome_aprovador}. Novo saldo: R$ {registro.saldo:.2f}.", "success")
+    flash(f"R$ {credito:.2f} adicionados a {nome_aprovador}. Novo saldo: R$ {registro.saldo:.2f}.", "success")
     return redirect(url_for("financeiro"))
 
 @app.route("/financeiro/centro_custo/editar/<int:centro_id>", methods=["POST"])
@@ -369,9 +325,6 @@ def editar_saldo_centro_custo(centro_id):
     flash(f"Saldo de '{centro.nome}' definido para R$ {centro.saldo:.2f}.", "success")
     return redirect(url_for("financeiro"))
 
-# ===============================
-# CREDITAR CENTRO DE CUSTO (INCREMENTAL)
-# ===============================
 @app.route("/financeiro/centro_custo/creditar/<int:centro_id>", methods=["POST"])
 @login_required
 def creditar_centro_custo(centro_id):
@@ -381,14 +334,14 @@ def creditar_centro_custo(centro_id):
     try:
         credito = float(request.form.get("credito", 0))
     except (ValueError, TypeError):
-        flash("Valor de crédito inválido.", "danger")
+        flash("Valor de credito invalido.", "danger")
         return redirect(url_for("financeiro"))
     if credito <= 0:
-        flash("O valor de crédito deve ser maior que zero.", "warning")
+        flash("O valor de credito deve ser maior que zero.", "warning")
         return redirect(url_for("financeiro"))
     centro.saldo = (centro.saldo or 0) + credito
     db.session.commit()
-    flash(f"R$ {credito:.2f} adicionados ao saldo de '{centro.nome}'. Novo saldo: R$ {centro.saldo:.2f}.", "success")
+    flash(f"R$ {credito:.2f} adicionados a '{centro.nome}'. Novo saldo: R$ {centro.saldo:.2f}.", "success")
     return redirect(url_for("financeiro"))
 
 # ===============================
@@ -399,16 +352,13 @@ def creditar_centro_custo(centro_id):
 def excluir_centro_custo_fin(centro_id):
     if current_user.perfil != "admin":
         abort(403)
-
     centro = CentroCusto.query.get_or_404(centro_id)
-    ordem_vinculada = OrdemCompra.query.filter_by(centro_custo=centro.nome).first()
-    if ordem_vinculada:
-        flash("Este centro de custo não pode ser excluído porque está vinculado a ordens.", "warning")
+    if OrdemCompra.query.filter_by(centro_custo=centro.nome).first():
+        flash("Centro de custo vinculado a ordens, nao pode ser excluido.", "warning")
         return redirect(url_for("fornecedores"))
-
     db.session.delete(centro)
     db.session.commit()
-    flash("Centro de custo excluído com sucesso.", "success")
+    flash("Centro de custo excluido com sucesso.", "success")
     return redirect(url_for("fornecedores"))
 
 # ===============================
@@ -429,11 +379,9 @@ def salvar_fornecedor():
     nome = request.form.get("nome")
     if not nome:
         return redirect(url_for("fornecedores"))
-
     if Fornecedor.query.filter_by(nome=nome).first():
-        flash("Fornecedor já existe.", "warning")
+        flash("Fornecedor ja existe.", "warning")
         return redirect(url_for("fornecedores"))
-
     db.session.add(Fornecedor(nome=nome))
     db.session.commit()
     flash("Fornecedor cadastrado com sucesso", "success")
@@ -445,7 +393,7 @@ def excluir_fornecedor(fornecedor_id):
     fornecedor = Fornecedor.query.get_or_404(fornecedor_id)
     db.session.delete(fornecedor)
     db.session.commit()
-    flash("Fornecedor excluído com sucesso", "success")
+    flash("Fornecedor excluido com sucesso", "success")
     return redirect(url_for("fornecedores"))
 
 # ===============================
@@ -456,19 +404,15 @@ def excluir_fornecedor(fornecedor_id):
 def novo_centro_custo():
     if current_user.perfil not in ["admin", "financeiro"]:
         abort(403)
-    nome = request.form.get("nome")
+    nome  = request.form.get("nome")
     saldo = float(request.form.get("saldo", 0))
-
     if not nome:
-        flash("Nome do centro de custo é obrigatório.", "warning")
+        flash("Nome do centro de custo e obrigatorio.", "warning")
         return redirect(url_for("financeiro"))
-
     if CentroCusto.query.filter_by(nome=nome).first():
-        flash("Centro de custo já existe.", "warning")
+        flash("Centro de custo ja existe.", "warning")
         return redirect(url_for("financeiro"))
-
-    centro = CentroCusto(nome=nome, saldo=saldo)
-    db.session.add(centro)
+    db.session.add(CentroCusto(nome=nome, saldo=saldo))
     db.session.commit()
     flash("Centro de custo criado com sucesso.", "success")
     return redirect(url_for("financeiro"))
@@ -479,95 +423,93 @@ def novo_centro_custo():
 @app.route("/ordens")
 @login_required
 def ordens():
-    return render_template(
-        "ordens.html",
-        ordens=OrdemCompra.query.order_by(OrdemCompra.id.desc()).all()
-    )
+    lista   = OrdemCompra.query.order_by(OrdemCompra.id.desc()).all()
+    aprovadores = Usuario.query.filter_by(perfil="aprovador").order_by(Usuario.nome).all()
+    return render_template("ordens.html", ordens=lista, aprovadores=aprovadores)
+
+# ===============================
+# EDITAR APROVADOR DE ORDEM (BUG 9)
+# ===============================
+@app.route("/ordens/editar_aprovador/<int:ordem_id>", methods=["POST"])
+@login_required
+def editar_aprovador_ordem(ordem_id):
+    if current_user.perfil not in ["admin", "financeiro"]:
+        abort(403)
+    ordem = OrdemCompra.query.get_or_404(ordem_id)
+    if ordem.status != "Pendente":
+        flash("So e possivel editar o aprovador de ordens pendentes.", "warning")
+        return redirect(url_for("ordens"))
+    novo_aprovador = request.form.get("aprovador", "").strip()
+    if not novo_aprovador:
+        flash("Selecione um aprovador valido.", "warning")
+        return redirect(url_for("ordens"))
+    ordem.aprovador = novo_aprovador
+    db.session.commit()
+    flash(f"Aprovador da ordem #{ordem_id} atualizado para {novo_aprovador}.", "success")
+    return redirect(url_for("ordens"))
 
 @app.route("/nova_ordem", methods=["GET", "POST"])
 @login_required
 def nova_ordem():
-
-    fornecedores = Fornecedor.query.order_by(Fornecedor.nome).all()
+    fornecedores  = Fornecedor.query.order_by(Fornecedor.nome).all()
     centros_custo = CentroCusto.query.order_by(CentroCusto.nome).all()
     todos_produtos = Produto.query.order_by(Produto.nome).all()
 
     if request.method == "POST":
-
-        fornecedor = request.form.get("fornecedor")
+        fornecedor   = request.form.get("fornecedor")
         centro_custo = request.form.get("centro_custo")
-        aprovador = request.form.get("aprovador")
-
-        produtos_ids = request.form.getlist("produto_id[]")
-        quantidades = request.form.getlist("quantidade[]")
-        valores_unitarios = request.form.getlist("valor_unitario[]")
+        aprovador    = request.form.get("aprovador")
+        produtos_ids       = request.form.getlist("produto_id[]")
+        quantidades        = request.form.getlist("quantidade[]")
+        valores_unitarios  = request.form.getlist("valor_unitario[]")
 
         if not fornecedor or not centro_custo:
-            flash("Fornecedor e Centro de Custo são obrigatórios.", "warning")
+            flash("Fornecedor e Centro de Custo sao obrigatorios.", "warning")
             return redirect(url_for("nova_ordem"))
-
         if not produtos_ids:
             flash("Adicione pelo menos um produto.", "warning")
             return redirect(url_for("nova_ordem"))
 
         nova = OrdemCompra(
-            fornecedor=fornecedor,
-            centro_custo=centro_custo,
-            aprovador=aprovador,
-            descricao_itens="",
-            valor=0
+            fornecedor=fornecedor, centro_custo=centro_custo,
+            aprovador=aprovador, descricao_itens="", valor=0
         )
-
         db.session.add(nova)
         db.session.flush()
 
         total = 0
         descricao_auto = []
-
         for i in range(len(produtos_ids)):
             try:
-                produto_id = int(produtos_ids[i])
-                quantidade = int(quantidades[i])
-                valor_unitario = float(valores_unitarios[i])
+                pid  = int(produtos_ids[i])
+                qtd  = int(quantidades[i])
+                vuni = float(valores_unitarios[i])
             except (ValueError, IndexError):
                 continue
-
-            if quantidade <= 0 or valor_unitario < 0:
+            if qtd <= 0 or vuni < 0:
                 continue
-
-            produto = Produto.query.get(produto_id)
+            produto = Produto.query.get(pid)
             if not produto:
                 continue
-
-            subtotal = quantidade * valor_unitario
-            total += subtotal
-            descricao_auto.append(f"{produto.nome} ({quantidade} un)")
-
-            item = ItemOrdem(
-                ordem_id=nova.id,
-                produto_id=produto_id,
-                quantidade=quantidade,
-                valor_unitario=valor_unitario
-            )
-            db.session.add(item)
+            total += qtd * vuni
+            descricao_auto.append(f"{produto.nome} ({qtd} un)")
+            db.session.add(ItemOrdem(
+                ordem_id=nova.id, produto_id=pid,
+                quantidade=qtd, valor_unitario=vuni
+            ))
 
         if total == 0:
-            flash("Valores inválidos na ordem.", "warning")
+            flash("Valores invalidos na ordem.", "warning")
             db.session.rollback()
             return redirect(url_for("nova_ordem"))
 
         nova.valor = total
         nova.descricao_itens = "\n".join(descricao_auto)
         db.session.commit()
-
         flash("Ordem criada com sucesso.", "success")
         return redirect(url_for("ordens"))
 
-    produtos_json = [
-        {"id": p.id, "nome": p.nome}
-        for p in todos_produtos
-    ]
-
+    produtos_json = [{"id": p.id, "nome": p.nome} for p in todos_produtos]
     return render_template(
         "nova_ordem.html",
         fornecedores=fornecedores,
@@ -583,34 +525,24 @@ def nova_ordem():
 def aprovar(ordem_id):
     if current_user.perfil not in ["admin", "aprovador"]:
         abort(403)
-
     ordem = OrdemCompra.query.get_or_404(ordem_id)
     valor = float(ordem.valor or 0)
-
-    saldo_aprovador = SaldoAprovador.query.filter_by(nome_aprovador=ordem.aprovador).first()
-    if not saldo_aprovador or saldo_aprovador.saldo < valor:
+    saldo_ap = SaldoAprovador.query.filter_by(nome_aprovador=ordem.aprovador).first()
+    if not saldo_ap or saldo_ap.saldo < valor:
         flash("Saldo insuficiente do aprovador.", "danger")
         return redirect(url_for("ordens"))
-
     centro = CentroCusto.query.filter_by(nome=ordem.centro_custo).first()
     if not centro or (centro.saldo or 0) < valor:
         flash("Centro de custo sem saldo.", "danger")
         return redirect(url_for("ordens"))
-
-    saldo_aprovador.saldo -= valor
-    centro.saldo -= valor
-
-    ordem.status = "Aprovada"
+    saldo_ap.saldo  -= valor
+    centro.saldo    -= valor
+    ordem.status     = "Aprovada"
     ordem.aprovado_por = current_user.nome
-    ordem.aprovado_em = datetime.now()
-
+    ordem.aprovado_em  = datetime.now()
     for item in ordem.itens:
-        produto = item.produto
-        if produto:
-            produto.estoque_atual -= item.quantidade
-            if produto.estoque_atual < 0:
-                produto.estoque_atual = 0
-
+        if item.produto:
+            item.produto.estoque_atual = max(0, (item.produto.estoque_atual or 0) - item.quantidade)
     db.session.commit()
     flash("Ordem aprovada com sucesso.", "success")
     return redirect(url_for("ordens"))
@@ -620,11 +552,10 @@ def aprovar(ordem_id):
 def reprovar_ordem(ordem_id):
     if current_user.perfil not in ["admin", "aprovador"]:
         abort(403)
-
     ordem = OrdemCompra.query.get_or_404(ordem_id)
-    ordem.status = "Reprovada"
+    ordem.status       = "Reprovada"
     ordem.aprovado_por = current_user.nome
-    ordem.aprovado_em = datetime.now()
+    ordem.aprovado_em  = datetime.now()
     db.session.commit()
     flash("Ordem reprovada com sucesso.", "warning")
     return redirect(url_for("ordens"))
@@ -637,11 +568,11 @@ def excluir_ordem(ordem_id):
     ordem = OrdemCompra.query.get_or_404(ordem_id)
     db.session.delete(ordem)
     db.session.commit()
-    flash("Ordem excluída.", "success")
+    flash("Ordem excluida.", "success")
     return redirect(url_for("ordens"))
 
 # ===============================
-# RELATÓRIOS
+# RELATORIOS
 # ===============================
 @app.route("/relatorios")
 @login_required
@@ -657,16 +588,13 @@ def relatorios():
 @login_required
 def anexar_nf(ordem_id):
     ordem = OrdemCompra.query.get_or_404(ordem_id)
-    file = request.files.get("nota_fiscal")
-
+    file  = request.files.get("nota_fiscal")
     if not file:
         flash("Nenhum arquivo enviado.", "warning")
         return redirect(url_for("relatorios"))
-
     os.makedirs(os.path.join("static", "notas_fiscais"), exist_ok=True)
     filename = secure_filename(file.filename)
     file.save(os.path.join("static", "notas_fiscais", filename))
-
     ordem.nota_fiscal = filename
     db.session.commit()
     flash("Nota fiscal anexada com sucesso.", "success")
@@ -680,7 +608,7 @@ def excluir_ordem_relatorio(ordem_id):
     ordem = OrdemCompra.query.get_or_404(ordem_id)
     db.session.delete(ordem)
     db.session.commit()
-    flash("Ordem excluída.", "success")
+    flash("Ordem excluida.", "success")
     return redirect(url_for("relatorios"))
 
 # ===============================
@@ -689,31 +617,23 @@ def excluir_ordem_relatorio(ordem_id):
 @app.route("/relatorios/excel")
 @login_required
 def relatorios_excel():
-
     ordens = OrdemCompra.query.order_by(OrdemCompra.id.desc()).all()
-
-    dados = []
-    for o in ordens:
-        dados.append({
-            "ID": o.id,
-            "Fornecedor": o.fornecedor,
-            "Centro de Custo": o.centro_custo,
-            "Valor (R$)": float(o.valor or 0),
-            "Aprovador": o.aprovado_por or "",
-            "Data da Compra": o.data_compra.strftime("%d/%m/%Y") if o.data_compra else "",
-            "Status": o.status
-        })
-
+    dados = [{
+        "ID": o.id,
+        "Fornecedor": o.fornecedor,
+        "Centro de Custo": o.centro_custo,
+        "Valor (R$)": float(o.valor or 0),
+        "Aprovador": o.aprovado_por or "",
+        "Data da Compra": o.data_compra.strftime("%d/%m/%Y") if o.data_compra else "",
+        "Status": o.status
+    } for o in ordens]
     df = pd.DataFrame(dados)
-
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Ordens")
     output.seek(0)
-
     return send_file(
-        output,
-        as_attachment=True,
+        output, as_attachment=True,
         download_name="relatorio_ordens.xlsx",
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
@@ -724,51 +644,32 @@ def relatorios_excel():
 @app.route("/relatorios/pdf")
 @login_required
 def relatorios_pdf():
-
-    ordens = OrdemCompra.query.order_by(OrdemCompra.id.desc()).all()
+    ordens  = OrdemCompra.query.order_by(OrdemCompra.id.desc()).all()
     caminho = os.path.join(os.getcwd(), "relatorio_ordens.pdf")
-
-    doc = SimpleDocTemplate(caminho, pagesize=A4)
-    elementos = []
-
-    tabela = [
-        ["ID", "Fornecedor", "Centro", "Valor",
-         "Aprovador", "Data da Compra", "Status"]
-    ]
-
+    doc     = SimpleDocTemplate(caminho, pagesize=A4)
+    tabela  = [["ID","Fornecedor","Centro","Valor","Aprovador","Data","Status"]]
     for o in ordens:
         tabela.append([
-            str(o.id),
-            o.fornecedor,
-            o.centro_custo,
+            str(o.id), o.fornecedor, o.centro_custo,
             f"R$ {float(o.valor or 0):.2f}",
             o.aprovado_por or "",
             o.data_compra.strftime("%d/%m/%Y") if o.data_compra else "",
             o.status
         ])
-
-    estilo = TableStyle([
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-        ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
-        ("ALIGN", (3, 1), (3, -1), "RIGHT"),
-    ])
-
     tbl = Table(tabela)
-    tbl.setStyle(estilo)
-    elementos.append(tbl)
-    doc.build(elementos)
-
-    return send_file(
-        caminho,
-        as_attachment=True,
-        download_name="relatorio_ordens.pdf"
-    )
+    tbl.setStyle(TableStyle([
+        ("GRID",       (0,0), (-1,-1), 0.5, colors.grey),
+        ("BACKGROUND", (0,0), (-1, 0), colors.lightgrey),
+        ("ALIGN",      (3,1), ( 3,-1), "RIGHT"),
+    ]))
+    doc.build([tbl])
+    return send_file(caminho, as_attachment=True, download_name="relatorio_ordens.pdf")
 
 @app.route("/relatorios/data_compra/<int:ordem_id>", methods=["POST"])
 @login_required
 def salvar_data_compra(ordem_id):
     ordem = OrdemCompra.query.get_or_404(ordem_id)
-    data = request.form.get("data_compra")
+    data  = request.form.get("data_compra")
     if data:
         ordem.data_compra = datetime.strptime(data, "%Y-%m-%d").date()
         db.session.commit()
@@ -780,47 +681,34 @@ def salvar_data_compra(ordem_id):
 @app.route("/produtos", methods=["GET", "POST"])
 @login_required
 def produtos():
-
     if request.method == "POST":
-
         if request.form.get("produto_id") and request.form.get("ajuste"):
             try:
                 produto = Produto.query.get(int(request.form.get("produto_id")))
-                ajuste = int(request.form.get("ajuste"))
+                ajuste  = int(request.form.get("ajuste"))
                 if produto:
-                    produto.estoque_atual += ajuste
-                    if produto.estoque_atual < 0:
-                        produto.estoque_atual = 0
+                    produto.estoque_atual = max(0, (produto.estoque_atual or 0) + ajuste)
                     db.session.commit()
                     flash("Estoque atualizado com sucesso.", "success")
-            except:
+            except Exception:
                 flash("Erro ao atualizar estoque.", "danger")
             return redirect(url_for("produtos"))
 
-        nome = request.form.get("nome")
-        estoque_atual = int(request.form.get("estoque_atual", 0))
+        nome           = request.form.get("nome")
+        estoque_atual  = int(request.form.get("estoque_atual",  0))
         estoque_minimo = int(request.form.get("estoque_minimo", 0))
-
         if not nome:
-            flash("Nome do produto é obrigatório.", "warning")
+            flash("Nome do produto e obrigatorio.", "warning")
             return redirect(url_for("produtos"))
-
         if Produto.query.filter_by(nome=nome).first():
-            flash("Produto já cadastrado.", "warning")
+            flash("Produto ja cadastrado.", "warning")
             return redirect(url_for("produtos"))
-
-        novo_produto = Produto(
-            nome=nome,
-            estoque_atual=estoque_atual,
-            estoque_minimo=estoque_minimo
-        )
-        db.session.add(novo_produto)
+        db.session.add(Produto(nome=nome, estoque_atual=estoque_atual, estoque_minimo=estoque_minimo))
         db.session.commit()
         flash("Produto cadastrado com sucesso.", "success")
         return redirect(url_for("produtos"))
 
-    lista_produtos = Produto.query.order_by(Produto.nome).all()
-    return render_template("produtos.html", produtos=lista_produtos)
+    return render_template("produtos.html", produtos=Produto.query.order_by(Produto.nome).all())
 
 # ===============================
 # EDITAR PRODUTO (BUG 7)
@@ -830,31 +718,25 @@ def produtos():
 def editar_produto(produto_id):
     if current_user.perfil not in ["admin", "financeiro"]:
         abort(403)
-
     produto = Produto.query.get_or_404(produto_id)
-
-    nome = request.form.get("nome", "").strip()
-    estoque_atual = request.form.get("estoque_atual", "")
+    nome           = request.form.get("nome", "").strip()
+    estoque_atual  = request.form.get("estoque_atual", "")
     estoque_minimo = request.form.get("estoque_minimo", "")
-
     if not nome:
-        flash("Nome do produto é obrigatório.", "warning")
+        flash("Nome do produto e obrigatorio.", "warning")
         return redirect(url_for("produtos"))
-
     outro = Produto.query.filter_by(nome=nome).first()
     if outro and outro.id != produto_id:
-        flash("Já existe outro produto com esse nome.", "warning")
+        flash("Ja existe outro produto com esse nome.", "warning")
         return redirect(url_for("produtos"))
-
     try:
-        produto.nome = nome
-        produto.estoque_atual = int(estoque_atual)
+        produto.nome           = nome
+        produto.estoque_atual  = int(estoque_atual)
         produto.estoque_minimo = int(estoque_minimo)
         db.session.commit()
         flash("Produto atualizado com sucesso.", "success")
     except (ValueError, TypeError):
-        flash("Valores de estoque inválidos.", "danger")
-
+        flash("Valores de estoque invalidos.", "danger")
     return redirect(url_for("produtos"))
 
 # ===============================
@@ -865,11 +747,11 @@ def editar_produto(produto_id):
 def excluir_produto(produto_id):
     produto = Produto.query.get_or_404(produto_id)
     if ItemOrdem.query.filter_by(produto_id=produto_id).first():
-        flash("Não é possível excluir este produto porque ele já foi utilizado em uma ordem de compra.", "warning")
+        flash("Produto vinculado a uma ordem, nao pode ser excluido.", "warning")
         return redirect(url_for("produtos"))
     db.session.delete(produto)
     db.session.commit()
-    flash("Produto excluído com sucesso.", "success")
+    flash("Produto excluido com sucesso.", "success")
     return redirect(url_for("produtos"))
 
 # ===============================
