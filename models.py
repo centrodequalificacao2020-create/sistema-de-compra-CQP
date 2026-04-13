@@ -10,9 +10,9 @@ db = SQLAlchemy()
 class CentroCusto(db.Model):
     __tablename__ = "centros_custo"
 
-    id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(120), nullable=False, unique=True)
-    saldo = db.Column(db.Float, default=0)
+    id     = db.Column(db.Integer, primary_key=True)
+    nome   = db.Column(db.String(120), nullable=False, unique=True)
+    saldo  = db.Column(db.Float, default=0)
 
 
 # =========================
@@ -21,7 +21,7 @@ class CentroCusto(db.Model):
 class Fornecedor(db.Model):
     __tablename__ = "fornecedores"
 
-    id = db.Column(db.Integer, primary_key=True)
+    id   = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(120), nullable=False, unique=True)
 
 
@@ -33,27 +33,20 @@ class OrdemCompra(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
 
-    fornecedor = db.Column(db.String(120), nullable=False)
-    centro_custo = db.Column(db.String(120), nullable=False)
-
+    fornecedor      = db.Column(db.String(120), nullable=False)
+    centro_custo    = db.Column(db.String(120), nullable=False)
     descricao_itens = db.Column(db.Text, nullable=False)
-    valor = db.Column(db.Float, nullable=False)
+    valor           = db.Column(db.Float, nullable=False)
+    status          = db.Column(db.String(30), default="Pendente")
 
-    status = db.Column(db.String(30), default="Pendente")
-
-    aprovador = db.Column(db.String(120))
+    aprovador    = db.Column(db.String(120))
     aprovado_por = db.Column(db.String(120))
-    aprovado_em = db.Column(db.DateTime)
+    aprovado_em  = db.Column(db.DateTime)
 
     data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
+    nota_fiscal  = db.Column(db.String(255))
+    data_compra  = db.Column(db.Date)
 
-    # ✅ NOTA FISCAL (ANEXO)
-    nota_fiscal = db.Column(db.String(255))
-    data_compra = db.Column(db.Date)
-
-    # ===============================
-    # RELACIONAMENTO COM ITENS
-    # ===============================
     itens = db.relationship(
         "ItemOrdem",
         backref="ordem",
@@ -68,22 +61,26 @@ class OrdemCompra(db.Model):
 class SaldoAprovador(db.Model):
     __tablename__ = "saldos_aprovador"
 
-    id = db.Column(db.Integer, primary_key=True)
+    id             = db.Column(db.Integer, primary_key=True)
     nome_aprovador = db.Column(db.String(120), unique=True, nullable=False)
-    saldo = db.Column(db.Float, default=0)
+    saldo          = db.Column(db.Float, default=0)
 
 
 # =========================
-# USUÁRIO / FUNCIONÁRIO
+# USUARIO / FUNCIONARIO
 # =========================
 class Usuario(db.Model, UserMixin):
     __tablename__ = "usuarios"
 
-    id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(120), nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    senha = db.Column(db.String(255), nullable=False)
-    perfil = db.Column(db.String(50), nullable=False)
+    id     = db.Column(db.Integer, primary_key=True)
+    nome   = db.Column(db.String(120), nullable=False)
+    email  = db.Column(db.String(120), unique=True, nullable=False)
+    senha  = db.Column(db.String(255), nullable=False)
+    perfil = db.Column(db.String(50),  nullable=False)
+
+    # Limite maximo de valor que este aprovador pode aprovar.
+    # NULL = sem limite definido (aprovador de ultima faixa / ilimitado).
+    limite_aprovacao = db.Column(db.Float, nullable=True, default=None)
 
 
 # ===============================
@@ -92,9 +89,9 @@ class Usuario(db.Model, UserMixin):
 class Produto(db.Model):
     __tablename__ = "produto"
 
-    id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(150), unique=True, nullable=False)
-    estoque_atual = db.Column(db.Integer, default=0)
+    id             = db.Column(db.Integer, primary_key=True)
+    nome           = db.Column(db.String(150), unique=True, nullable=False)
+    estoque_atual  = db.Column(db.Integer, default=0)
     estoque_minimo = db.Column(db.Integer, default=0)
 
     itens_ordem = db.relationship(
@@ -120,17 +117,15 @@ class ItemOrdem(db.Model):
         db.ForeignKey("ordens_compra.id"),
         nullable=False
     )
-
     produto_id = db.Column(
         db.Integer,
         db.ForeignKey("produto.id"),
         nullable=False
     )
 
-    quantidade = db.Column(db.Integer, nullable=False)
-    valor_unitario = db.Column(db.Float, nullable=False)
-
-    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+    quantidade     = db.Column(db.Integer, nullable=False)
+    valor_unitario = db.Column(db.Float,   nullable=False)
+    criado_em      = db.Column(db.DateTime, default=datetime.utcnow)
 
     def subtotal(self):
         return self.quantidade * self.valor_unitario
