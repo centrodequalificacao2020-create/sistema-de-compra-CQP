@@ -3,102 +3,137 @@
 
 <div class="container mt-4">
 
-    <!-- TÍTULO -->
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h3 class="fw-bold text-primary d-flex align-items-center gap-2 mb-0">
-            <i class="bi bi-cash-coin fs-4"></i> Financeiro
-        </h3>
-
-        <button class="btn btn-outline-secondary btn-sm"
-                onclick="alert('Os aprovadores são cadastrados na aba FUNCIONÁRIOS, com perfil APROVADOR.')">
-            <i class="bi bi-info-circle"></i>
-            Como adicionar aprovador?
-        </button>
+        <h3 class="fw-bold text-primary mb-0">Financeiro</h3>
+        <small class="text-muted">Aprovadores são cadastrados na aba Funcionários com perfil Aprovador.</small>
     </div>
 
-    <!-- ===================== -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for categoria, mensagem in messages %}
+          <div class="alert alert-{{ categoria }}">{{ mensagem }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
     <!-- APROVADORES -->
-    <!-- ===================== -->
     <div class="card shadow-sm mb-4">
-        <div class="card-header fw-bold">
-            Aprovadores
-        </div>
+        <div class="card-header fw-bold">Aprovadores</div>
         <div class="card-body">
 
             {% if aprovadores %}
-                {% for a in aprovadores %}
-                    <form method="POST"
-                          action="{{ url_for('editar_saldo_aprovador', nome_aprovador=a.nome) }}"
-                          class="row align-items-center mb-2">
+                <table class="table table-sm align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nome</th>
+                            <th>Saldo Atual</th>
+                            <th>Definir saldo total</th>
+                            <th>Adicionar crédito</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for a in aprovadores %}
+                        {% set saldo_atual = saldos_aprovadores.get(a.nome).saldo if saldos_aprovadores.get(a.nome) else 0 %}
+                        <tr>
+                            <td class="fw-semibold">{{ a.nome }}</td>
+                            <td>
+                                <span class="fw-bold text-success">
+                                    R$ {{ "{:,.2f}".format(saldo_atual).replace(",","X").replace(".",",").replace("X",".") }}
+                                </span>
+                            </td>
 
-                        <div class="col-md-4 fw-semibold">
-                            <i class="bi bi-person-circle text-secondary"></i>
-                            {{ a.nome }}
-                        </div>
+                            <!-- Substituir saldo -->
+                            <td>
+                                <form method="POST"
+                                      action="{{ url_for('editar_saldo_aprovador', nome_aprovador=a.nome) }}"
+                                      class="d-flex gap-2">
+                                    <input type="number" step="0.01" min="0" name="saldo"
+                                           class="form-control form-control-sm"
+                                           value="{{ saldo_atual }}"
+                                           style="max-width:130px">
+                                    <button class="btn btn-sm btn-primary">Definir</button>
+                                </form>
+                            </td>
 
-                        <div class="col-md-4">
-                            <input type="number"
-                                   step="0.01"
-                                   name="saldo"
-                                   class="form-control"
-                                   value="{{ saldos_aprovadores.get(a.nome).saldo if saldos_aprovadores.get(a.nome) else 0 }}">
-                        </div>
-
-                        <div class="col-md-4">
-                            <button class="btn btn-sm btn-primary">
-                                Salvar saldo
-                            </button>
-                        </div>
-                    </form>
-                {% endfor %}
+                            <!-- Adicionar crédito incremental -->
+                            <td>
+                                <form method="POST"
+                                      action="{{ url_for('creditar_aprovador', nome_aprovador=a.nome) }}"
+                                      class="d-flex gap-2">
+                                    <input type="number" step="0.01" min="0.01" name="credito"
+                                           class="form-control form-control-sm"
+                                           placeholder="R$ 0,00"
+                                           style="max-width:130px">
+                                    <button class="btn btn-sm btn-success">Adicionar</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
             {% else %}
-                <p class="text-muted mb-0">
-                    Nenhum aprovador cadastrado.
-                </p>
+                <p class="text-muted mb-0">Nenhum aprovador cadastrado.</p>
             {% endif %}
 
         </div>
     </div>
 
-    <!-- ===================== -->
     <!-- CENTROS DE CUSTO -->
-    <!-- ===================== -->
     <div class="card shadow-sm">
-        <div class="card-header fw-bold">
-            Centros de Custo
-        </div>
+        <div class="card-header fw-bold">Centros de Custo</div>
         <div class="card-body">
 
             {% if centros_custo %}
-                {% for c in centros_custo %}
-                    <form method="POST"
-                          action="{{ url_for('editar_saldo_centro_custo', centro_id=c.id) }}"
-                          class="row align-items-center mb-2">
+                <table class="table table-sm align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Centro</th>
+                            <th>Saldo Atual</th>
+                            <th>Definir saldo total</th>
+                            <th>Adicionar crédito</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for c in centros_custo %}
+                        <tr>
+                            <td class="fw-semibold">{{ c.nome }}</td>
+                            <td>
+                                <span class="fw-bold text-success">
+                                    R$ {{ "{:,.2f}".format(c.saldo or 0).replace(",","X").replace(".",",").replace("X",".") }}
+                                </span>
+                            </td>
 
-                        <div class="col-md-4 fw-semibold">
-                            <i class="bi bi-diagram-3 text-secondary"></i>
-                            {{ c.nome }}
-                        </div>
+                            <!-- Substituir saldo -->
+                            <td>
+                                <form method="POST"
+                                      action="{{ url_for('editar_saldo_centro_custo', centro_id=c.id) }}"
+                                      class="d-flex gap-2">
+                                    <input type="number" step="0.01" min="0" name="saldo"
+                                           class="form-control form-control-sm"
+                                           value="{{ c.saldo or 0 }}"
+                                           style="max-width:130px">
+                                    <button class="btn btn-sm btn-primary">Definir</button>
+                                </form>
+                            </td>
 
-                        <div class="col-md-4">
-                            <input type="number"
-                                   step="0.01"
-                                   name="saldo"
-                                   class="form-control"
-                                   value="{{ c.saldo or 0 }}">
-                        </div>
-
-                        <div class="col-md-4">
-                            <button class="btn btn-sm btn-success">
-                                Salvar saldo
-                            </button>
-                        </div>
-                    </form>
-                {% endfor %}
+                            <!-- Adicionar crédito incremental -->
+                            <td>
+                                <form method="POST"
+                                      action="{{ url_for('creditar_centro_custo', centro_id=c.id) }}"
+                                      class="d-flex gap-2">
+                                    <input type="number" step="0.01" min="0.01" name="credito"
+                                           class="form-control form-control-sm"
+                                           placeholder="R$ 0,00"
+                                           style="max-width:130px">
+                                    <button class="btn btn-sm btn-success">Adicionar</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
             {% else %}
-                <p class="text-muted mb-0">
-                    Nenhum centro de custo cadastrado.
-                </p>
+                <p class="text-muted mb-0">Nenhum centro de custo cadastrado.</p>
             {% endif %}
 
         </div>
