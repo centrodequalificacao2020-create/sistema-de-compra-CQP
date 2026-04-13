@@ -10,9 +10,9 @@ db = SQLAlchemy()
 class CentroCusto(db.Model):
     __tablename__ = "centros_custo"
 
-    id     = db.Column(db.Integer, primary_key=True)
-    nome   = db.Column(db.String(120), nullable=False, unique=True)
-    saldo  = db.Column(db.Float, default=0)
+    id    = db.Column(db.Integer, primary_key=True)
+    nome  = db.Column(db.String(120), nullable=False, unique=True)
+    saldo = db.Column(db.Float, default=0)
 
 
 # =========================
@@ -37,11 +37,19 @@ class OrdemCompra(db.Model):
     centro_custo    = db.Column(db.String(120), nullable=False)
     descricao_itens = db.Column(db.Text, nullable=False)
     valor           = db.Column(db.Float, nullable=False)
-    status          = db.Column(db.String(30), default="Pendente")
 
+    # Pendente | Aguardando 2a Aprovacao | Aprovada | Reprovada
+    status = db.Column(db.String(30), default="Pendente")
+
+    # 1a aprovacao
     aprovador    = db.Column(db.String(120))
     aprovado_por = db.Column(db.String(120))
     aprovado_em  = db.Column(db.DateTime)
+
+    # 2a aprovacao (fundos_cqp)
+    aprovador_2    = db.Column(db.String(120), nullable=True)
+    aprovado_por_2 = db.Column(db.String(120), nullable=True)
+    aprovado_em_2  = db.Column(db.DateTime,    nullable=True)
 
     data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
     nota_fiscal  = db.Column(db.String(255))
@@ -78,8 +86,7 @@ class Usuario(db.Model, UserMixin):
     senha  = db.Column(db.String(255), nullable=False)
     perfil = db.Column(db.String(50),  nullable=False)
 
-    # Limite maximo de valor que este aprovador pode aprovar.
-    # NULL = sem limite definido (aprovador de ultima faixa / ilimitado).
+    # NULL = sem limite (aprovador de ultima faixa / ilimitado)
     limite_aprovacao = db.Column(db.Float, nullable=True, default=None)
 
 
