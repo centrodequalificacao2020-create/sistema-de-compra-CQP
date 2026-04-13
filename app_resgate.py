@@ -475,8 +475,6 @@ def nova_ordem():
 
     fornecedores = Fornecedor.query.order_by(Fornecedor.nome).all()
     centros_custo = CentroCusto.query.order_by(CentroCusto.nome).all()
-
-    # BUG 3 CORRIGIDO: carrega TODOS os produtos sem paginação
     todos_produtos = Produto.query.order_by(Produto.nome).all()
 
     if request.method == "POST":
@@ -569,10 +567,14 @@ def nova_ordem():
 
 # ===============================
 # APROVAR / REPROVAR
+# BUG 4 CORRIGIDO: guard de perfil no backend
 # ===============================
 @app.route("/aprovar/<int:ordem_id>", methods=["POST"])
 @login_required
 def aprovar(ordem_id):
+    if current_user.perfil not in ["admin", "aprovador"]:
+        abort(403)
+
     ordem = OrdemCompra.query.get_or_404(ordem_id)
     valor = float(ordem.valor or 0)
 
@@ -608,6 +610,9 @@ def aprovar(ordem_id):
 @app.route("/ordens/reprovar/<int:ordem_id>", methods=["POST"])
 @login_required
 def reprovar_ordem(ordem_id):
+    if current_user.perfil not in ["admin", "aprovador"]:
+        abort(403)
+
     ordem = OrdemCompra.query.get_or_404(ordem_id)
     ordem.status = "Reprovada"
     ordem.aprovado_por = current_user.nome
