@@ -3,7 +3,7 @@
 
 <div class="container mt-4">
 
-    <h3 class="fw-bold mb-3">📄 Ordens de Compra</h3>
+    <h3 class="fw-bold mb-3">Ordens de Compra</h3>
 
     <!-- TOTALIZADORES -->
     <div class="row mb-4">
@@ -82,37 +82,30 @@
                         <!-- AÇÕES -->
                         <td class="text-end">
 
-                            {% if ordem.status == 'Pendente' %}
+                            {% if ordem.status == 'Pendente' and current_user.perfil in ['admin', 'aprovador'] %}
                                 <form method="POST"
                                       action="{{ url_for('aprovar', ordem_id=ordem.id) }}"
                                       style="display:inline;"
                                       onsubmit="return confirm('Aprovar esta ordem?');">
-                                    <button class="btn btn-sm btn-success">
-                                        ✔ Aprovar
-                                    </button>
+                                    <button class="btn btn-sm btn-success">Aprovar</button>
                                 </form>
 
                                 <form method="POST"
                                       action="{{ url_for('reprovar_ordem', ordem_id=ordem.id) }}"
                                       style="display:inline;"
                                       onsubmit="return confirm('Reprovar esta ordem?');">
-                                    <button class="btn btn-sm btn-danger">
-                                        ✖ Reprovar
-                                    </button>
+                                    <button class="btn btn-sm btn-danger">Reprovar</button>
                                 </form>
                             {% endif %}
 
                             {% if current_user.perfil == 'admin' %}
-    <form method="POST"
-          action="{{ url_for('excluir_ordem', ordem_id=ordem.id) }}"
-          style="display:inline;"
-          onsubmit="return confirm('Tem certeza que deseja EXCLUIR esta ordem? Esta ação não pode ser desfeita.');">
-        <button class="btn btn-sm btn-outline-danger">
-            🗑 Excluir
-        </button>
-    </form>
-{% endif %}
-
+                                <form method="POST"
+                                      action="{{ url_for('excluir_ordem', ordem_id=ordem.id) }}"
+                                      style="display:inline;"
+                                      onsubmit="return confirm('Tem certeza que deseja EXCLUIR esta ordem? Esta ação não pode ser desfeita.');">
+                                    <button class="btn btn-sm btn-outline-danger">Excluir</button>
+                                </form>
+                            {% endif %}
 
                         </td>
 
