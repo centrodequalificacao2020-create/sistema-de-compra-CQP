@@ -12,7 +12,7 @@
 
 <div class="container mt-4" style="max-width:1100px;">
 
-<h4 class="fw-bold text-primary mb-4">🛒 Nova Ordem de Compra</h4>
+<h4 class="fw-bold text-primary mb-4">Nova Ordem de Compra</h4>
 
 <form method="POST" class="card erp-card p-4">
 
@@ -57,7 +57,7 @@
 </div>
 </div>
 
-<button type="button" class="btn btn-outline-primary mb-3" onclick="addLinha()">➕ Adicionar Produto</button>
+<button type="button" class="btn btn-outline-primary mb-3" onclick="addLinha()">Adicionar Produto</button>
 
 <div class="d-flex justify-content-end align-items-center gap-3 mt-4">
 <div>
@@ -80,8 +80,6 @@
 
 <script>
 const produtos = {{ produtos|tojson }};
-const LIMITE_PADRAO = 600;
-const LIMITE_MAXIMO = 5000;
 
 function addLinha() {
 const tbody = document.querySelector("#tabelaProdutos tbody");
@@ -120,30 +118,39 @@ const riskBar = document.getElementById("riskBar");
 const aprovadorInfo = document.getElementById("aprovadorInfo");
 const bloqueioInfo = document.getElementById("bloqueioInfo");
 const btnSubmit = document.getElementById("btnSubmit");
+const campoAprovador = document.getElementById("campoAprovador");
+
+const LIMITE_RUANA = 500;
+const LIMITE_RAQUEL = 1000;
+const LIMITE_MAXIMO = 5000;
 
 let percentual = Math.min((total / LIMITE_MAXIMO) * 100, 100);
 riskBar.style.width = percentual + "%";
 riskBar.className = "risk-bar";
-
-if (total <= LIMITE_PADRAO) {
-riskBar.classList.add("risk-low");
-aprovadorInfo.innerHTML = "✔️ Aprovador: <strong>Ruana Maia</strong>";
-document.getElementById("campoAprovador").value = "Ruana Maia";
 bloqueioInfo.innerHTML = "";
 btnSubmit.disabled = false;
+
+if (total <= LIMITE_RUANA) {
+    riskBar.classList.add("risk-low");
+    aprovadorInfo.innerHTML = "Aprovador: <strong>Ruana Maia</strong>";
+    campoAprovador.value = "Ruana Maia";
+}
+else if (total <= LIMITE_RAQUEL) {
+    riskBar.classList.add("risk-medium");
+    aprovadorInfo.innerHTML = "Aprovador: <strong>Raquel Melo</strong>";
+    campoAprovador.value = "Raquel Melo";
 }
 else if (total <= LIMITE_MAXIMO) {
-riskBar.classList.add("risk-medium");
-aprovadorInfo.innerHTML = "⚠️ Aprovador: <strong>Raquel Melo</strong>";
-document.getElementById("campoAprovador").value = "Ruana Maia";
-bloqueioInfo.innerHTML = "";
-btnSubmit.disabled = false;
+    riskBar.classList.add("risk-high");
+    aprovadorInfo.innerHTML = "Aprovador: <strong>Alex Prata</strong>";
+    campoAprovador.value = "Alex Prata";
 }
 else {
-riskBar.classList.add("risk-high");
-aprovadorInfo.innerHTML = "";
-bloqueioInfo.innerHTML = "⚠️ Valor acima do limite máximo permitido (R$ 5.000)";
-btnSubmit.disabled = true;
+    riskBar.classList.add("risk-high");
+    aprovadorInfo.innerHTML = "";
+    campoAprovador.value = "";
+    bloqueioInfo.innerHTML = "Valor acima do limite máximo permitido (R$ 5.000)";
+    btnSubmit.disabled = true;
 }
 }
 
