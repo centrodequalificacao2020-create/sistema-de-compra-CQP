@@ -15,7 +15,7 @@
 
     <!-- TOTALIZADORES -->
     <div class="row mb-4">
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card text-center shadow-sm">
                 <div class="card-body">
                     <div class="text-muted">Pendentes</div>
@@ -25,7 +25,17 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
+            <div class="card text-center shadow-sm">
+                <div class="card-body">
+                    <div class="text-muted">Aguard. 2a Aprov.</div>
+                    <h4 class="text-info">
+                        {{ ordens | selectattr("status", "equalto", "Aguardando 2a Aprovacao") | list | length }}
+                    </h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
             <div class="card text-center shadow-sm">
                 <div class="card-body">
                     <div class="text-muted">Aprovadas</div>
@@ -35,7 +45,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card text-center shadow-sm">
                 <div class="card-body">
                     <div class="text-muted">Reprovadas</div>
@@ -70,7 +80,7 @@
                         <td>{{ ordem.centro_custo }}</td>
                         <td>R$ {{ "%.2f"|format(ordem.valor) }}</td>
 
-                        <!-- APROVADOR + botão editar -->
+                        <!-- APROVADOR -->
                         <td>
                             {{ ordem.aprovador or "-" }}
                             {% if ordem.status == 'Pendente' and current_user.perfil in ['admin', 'financeiro'] %}
@@ -84,12 +94,17 @@
                                 (editar)
                             </button>
                             {% endif %}
+                            {% if ordem.status == 'Aguardando 2a Aprovacao' %}
+                            <br><small class="text-muted">2a: {{ ordem.aprovador_2 or '-' }}</small>
+                            {% endif %}
                         </td>
 
                         <!-- STATUS -->
                         <td>
                             {% if ordem.status == 'Pendente' %}
                                 <span class="badge bg-warning text-dark">Pendente</span>
+                            {% elif ordem.status == 'Aguardando 2a Aprovacao' %}
+                                <span class="badge bg-info text-dark">Aguard. 2ª Aprov.</span>
                             {% elif ordem.status == 'Aprovada' %}
                                 <span class="badge bg-success">Aprovada</span>
                             {% else %}
@@ -99,12 +114,30 @@
 
                         <!-- AÇÕES -->
                         <td class="text-end">
+
+                            {# 1a aprovacao: apenas ordens Pendentes #}
                             {% if ordem.status == 'Pendente' and current_user.perfil in ['admin', 'aprovador'] %}
                                 <form method="POST"
                                       action="{{ url_for('aprovar', ordem_id=ordem.id) }}"
                                       style="display:inline;"
                                       onsubmit="return confirm('Aprovar esta ordem?');">
                                     <button class="btn btn-sm btn-success">Aprovar</button>
+                                </form>
+                                <form method="POST"
+                                      action="{{ url_for('reprovar_ordem', ordem_id=ordem.id) }}"
+                                      style="display:inline;"
+                                      onsubmit="return confirm('Reprovar esta ordem?');">
+                                    <button class="btn btn-sm btn-danger">Reprovar</button>
+                                </form>
+                            {% endif %}
+
+                            {# 2a aprovacao: apenas ordens aguardando 2a aprovacao #}
+                            {% if ordem.status == 'Aguardando 2a Aprovacao' and current_user.perfil in ['admin', 'aprovador'] %}
+                                <form method="POST"
+                                      action="{{ url_for('segunda_aprovacao', ordem_id=ordem.id) }}"
+                                      style="display:inline;"
+                                      onsubmit="return confirm('Confirmar 2ª aprovacao desta ordem?');">
+                                    <button class="btn btn-sm btn-primary">2ª Aprovacao</button>
                                 </form>
                                 <form method="POST"
                                       action="{{ url_for('reprovar_ordem', ordem_id=ordem.id) }}"
@@ -171,11 +204,7 @@ document.getElementById('modalEditarAprovador').addEventListener('show.bs.modal'
     const btn = event.relatedTarget;
     const ordemId = btn.getAttribute('data-id');
     const aprovadorAtual = btn.getAttribute('data-aprovador');
-
-    // aponta o form para a ordem correta
     document.getElementById('formEditarAprovador').action = '/ordens/editar_aprovador/' + ordemId;
-
-    // pré-seleciona o aprovador atual no select
     const select = document.querySelector('#formEditarAprovador select[name="aprovador"]');
     for (let opt of select.options) {
         opt.selected = (opt.value === aprovadorAtual);
