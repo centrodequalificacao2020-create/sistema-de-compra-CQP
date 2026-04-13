@@ -330,6 +330,32 @@ def editar_saldo_aprovador(nome_aprovador):
         db.session.add(registro)
     registro.saldo = valor
     db.session.commit()
+    flash(f"Saldo de {nome_aprovador} definido para R$ {valor:.2f}.", "success")
+    return redirect(url_for("financeiro"))
+
+# ===============================
+# CREDITAR APROVADOR (INCREMENTAL)
+# ===============================
+@app.route("/financeiro/aprovador/creditar/<string:nome_aprovador>", methods=["POST"])
+@login_required
+def creditar_aprovador(nome_aprovador):
+    if current_user.perfil not in ["admin", "financeiro"]:
+        abort(403)
+    try:
+        credito = float(request.form.get("credito", 0))
+    except (ValueError, TypeError):
+        flash("Valor de crédito inválido.", "danger")
+        return redirect(url_for("financeiro"))
+    if credito <= 0:
+        flash("O valor de crédito deve ser maior que zero.", "warning")
+        return redirect(url_for("financeiro"))
+    registro = SaldoAprovador.query.filter_by(nome_aprovador=nome_aprovador).first()
+    if not registro:
+        registro = SaldoAprovador(nome_aprovador=nome_aprovador, saldo=0)
+        db.session.add(registro)
+    registro.saldo = (registro.saldo or 0) + credito
+    db.session.commit()
+    flash(f"R$ {credito:.2f} adicionados ao saldo de {nome_aprovador}. Novo saldo: R$ {registro.saldo:.2f}.", "success")
     return redirect(url_for("financeiro"))
 
 @app.route("/financeiro/centro_custo/editar/<int:centro_id>", methods=["POST"])
@@ -340,7 +366,29 @@ def editar_saldo_centro_custo(centro_id):
     centro = CentroCusto.query.get_or_404(centro_id)
     centro.saldo = float(request.form.get("saldo", 0))
     db.session.commit()
-    flash("Saldo do centro de custo atualizado.", "success")
+    flash(f"Saldo de '{centro.nome}' definido para R$ {centro.saldo:.2f}.", "success")
+    return redirect(url_for("financeiro"))
+
+# ===============================
+# CREDITAR CENTRO DE CUSTO (INCREMENTAL)
+# ===============================
+@app.route("/financeiro/centro_custo/creditar/<int:centro_id>", methods=["POST"])
+@login_required
+def creditar_centro_custo(centro_id):
+    if current_user.perfil not in ["admin", "financeiro"]:
+        abort(403)
+    centro = CentroCusto.query.get_or_404(centro_id)
+    try:
+        credito = float(request.form.get("credito", 0))
+    except (ValueError, TypeError):
+        flash("Valor de crédito inválido.", "danger")
+        return redirect(url_for("financeiro"))
+    if credito <= 0:
+        flash("O valor de crédito deve ser maior que zero.", "warning")
+        return redirect(url_for("financeiro"))
+    centro.saldo = (centro.saldo or 0) + credito
+    db.session.commit()
+    flash(f"R$ {credito:.2f} adicionados ao saldo de '{centro.nome}'. Novo saldo: R$ {centro.saldo:.2f}.", "success")
     return redirect(url_for("financeiro"))
 
 # ===============================
@@ -462,7 +510,7 @@ def nova_ordem():
             flash("Adicione pelo menos um produto.", "warning")
             return redirect(url_for("nova_ordem"))
 
-        nova_ordem = OrdemCompra(
+        nova = OrdemCompra(
             fornecedor=fornecedor,
             centro_custo=centro_custo,
             aprovador=aprovador,
@@ -470,7 +518,7 @@ def nova_ordem():
             valor=0
         )
 
-        db.session.add(nova_ordem)
+        db.session.add(nova)
         db.session.flush()
 
         total = 0
@@ -496,7 +544,7 @@ def nova_ordem():
             descricao_auto.append(f"{produto.nome} ({quantidade} un)")
 
             item = ItemOrdem(
-                ordem_id=nova_ordem.id,
+                ordem_id=nova.id,
                 produto_id=produto_id,
                 quantidade=quantidade,
                 valor_unitario=valor_unitario
@@ -508,8 +556,8 @@ def nova_ordem():
             db.session.rollback()
             return redirect(url_for("nova_ordem"))
 
-        nova_ordem.valor = total
-        nova_ordem.descricao_itens = "\n".join(descricao_auto)
+        nova.valor = total
+        nova.descricao_itens = "\n".join(descricao_auto)
         db.session.commit()
 
         flash("Ordem criada com sucesso.", "success")
@@ -793,7 +841,6 @@ def editar_produto(produto_id):
         flash("Nome do produto é obrigatório.", "warning")
         return redirect(url_for("produtos"))
 
-    # Verifica duplicata de nome em outro produto
     outro = Produto.query.filter_by(nome=nome).first()
     if outro and outro.id != produto_id:
         flash("Já existe outro produto com esse nome.", "warning")
