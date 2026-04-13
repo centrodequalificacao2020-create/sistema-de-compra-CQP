@@ -5,6 +5,14 @@
 
     <h3 class="fw-bold mb-3">Ordens de Compra</h3>
 
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for categoria, mensagem in messages %}
+          <div class="alert alert-{{ categoria }}">{{ mensagem }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
     <!-- TOTALIZADORES -->
     <div class="row mb-4">
         <div class="col-md-4">
@@ -17,7 +25,6 @@
                 </div>
             </div>
         </div>
-
         <div class="col-md-4">
             <div class="card text-center shadow-sm">
                 <div class="card-body">
@@ -28,7 +35,6 @@
                 </div>
             </div>
         </div>
-
         <div class="col-md-4">
             <div class="card text-center shadow-sm">
                 <div class="card-body">
@@ -44,7 +50,6 @@
     <!-- TABELA -->
     <div class="card shadow-sm">
         <div class="card-body p-0">
-
             <table class="table table-hover align-middle mb-0">
                 <thead class="table-light">
                     <tr>
@@ -57,16 +62,29 @@
                         <th class="text-end">Ações</th>
                     </tr>
                 </thead>
-
                 <tbody>
                 {% for ordem in ordens %}
                     <tr>
-
                         <td>{{ ordem.id }}</td>
                         <td>{{ ordem.fornecedor }}</td>
                         <td>{{ ordem.centro_custo }}</td>
                         <td>R$ {{ "%.2f"|format(ordem.valor) }}</td>
-                        <td>{{ ordem.aprovador or "-" }}</td>
+
+                        <!-- APROVADOR + botão editar -->
+                        <td>
+                            {{ ordem.aprovador or "-" }}
+                            {% if ordem.status == 'Pendente' and current_user.perfil in ['admin', 'financeiro'] %}
+                            <button type="button"
+                                    class="btn btn-link btn-sm p-0 ms-1"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#modalEditarAprovador"
+                                    data-id="{{ ordem.id }}"
+                                    data-aprovador="{{ ordem.aprovador or '' }}"
+                                    title="Editar aprovador">
+                                (editar)
+                            </button>
+                            {% endif %}
+                        </td>
 
                         <!-- STATUS -->
                         <td>
@@ -81,7 +99,6 @@
 
                         <!-- AÇÕES -->
                         <td class="text-end">
-
                             {% if ordem.status == 'Pendente' and current_user.perfil in ['admin', 'aprovador'] %}
                                 <form method="POST"
                                       action="{{ url_for('aprovar', ordem_id=ordem.id) }}"
@@ -89,7 +106,6 @@
                                       onsubmit="return confirm('Aprovar esta ordem?');">
                                     <button class="btn btn-sm btn-success">Aprovar</button>
                                 </form>
-
                                 <form method="POST"
                                       action="{{ url_for('reprovar_ordem', ordem_id=ordem.id) }}"
                                       style="display:inline;"
@@ -102,11 +118,10 @@
                                 <form method="POST"
                                       action="{{ url_for('excluir_ordem', ordem_id=ordem.id) }}"
                                       style="display:inline;"
-                                      onsubmit="return confirm('Tem certeza que deseja EXCLUIR esta ordem? Esta ação não pode ser desfeita.');">
+                                      onsubmit="return confirm('Tem certeza que deseja EXCLUIR esta ordem?');">
                                     <button class="btn btn-sm btn-outline-danger">Excluir</button>
                                 </form>
                             {% endif %}
-
                         </td>
 
                     </tr>
@@ -118,12 +133,54 @@
                     </tr>
                 {% endfor %}
                 </tbody>
-
             </table>
-
         </div>
     </div>
 
 </div>
+
+<!-- MODAL EDITAR APROVADOR -->
+<div class="modal fade" id="modalEditarAprovador" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Editar Aprovador</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" id="formEditarAprovador" action="">
+                <div class="modal-body">
+                    <label class="form-label fw-bold">Selecione o novo aprovador</label>
+                    <select name="aprovador" class="form-select" required>
+                        <option value="" disabled>-- selecione --</option>
+                        {% for a in aprovadores %}
+                            <option value="{{ a.nome }}">{{ a.nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('modalEditarAprovador').addEventListener('show.bs.modal', function(event) {
+    const btn = event.relatedTarget;
+    const ordemId = btn.getAttribute('data-id');
+    const aprovadorAtual = btn.getAttribute('data-aprovador');
+
+    // aponta o form para a ordem correta
+    document.getElementById('formEditarAprovador').action = '/ordens/editar_aprovador/' + ordemId;
+
+    // pré-seleciona o aprovador atual no select
+    const select = document.querySelector('#formEditarAprovador select[name="aprovador"]');
+    for (let opt of select.options) {
+        opt.selected = (opt.value === aprovadorAtual);
+    }
+});
+</script>
 
 {% endblock %}
