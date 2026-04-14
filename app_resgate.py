@@ -495,7 +495,6 @@ def nova_ordem():
         nova = OrdemCompra(
             fornecedor=fornecedor, centro_custo=centro_custo,
             aprovador=aprovador, descricao_itens="", valor=0,
-            # Bug2: preenche a data de criacao automaticamente
             data_compra=datetime.now().date()
         )
         db.session.add(nova)
@@ -566,16 +565,13 @@ def aprovar(ordem_id):
         flash("Centro de custo sem saldo.", "danger")
         return redirect(url_for("ordens"))
 
-    # Debita saldo e registra 1a aprovacao
     saldo_ap.saldo -= valor
     centro.saldo   -= valor
     ordem.aprovado_por = current_user.nome
     ordem.aprovado_em  = datetime.now()
 
-    # Se centro exige dupla aprovacao, vai para estado intermediario
     if (ordem.centro_custo or "").strip().lower() == CENTRO_DUPLA_APROVACAO.lower():
         ordem.status = "Aguardando 2a Aprovacao"
-        # Designa admin como responsavel pela 2a aprovacao
         admin = Usuario.query.filter_by(perfil="admin").first()
         ordem.aprovador_2 = admin.nome if admin else "admin"
         db.session.commit()
@@ -585,7 +581,6 @@ def aprovar(ordem_id):
             "info"
         )
     else:
-        # Aprovacao simples: finaliza
         ordem.status = "Aprovada"
         for item in ordem.itens:
             if item.produto:
@@ -611,7 +606,6 @@ def segunda_aprovacao(ordem_id):
         flash("Esta ordem nao esta aguardando 2a aprovacao.", "warning")
         return redirect(url_for("ordens"))
 
-    # Nao permite que o mesmo usuario faca as duas aprovacoes
     if ordem.aprovado_por == current_user.nome:
         flash("Voce ja realizou a 1a aprovacao. A 2a aprovacao deve ser feita por outro usuario.", "danger")
         return redirect(url_for("ordens"))
@@ -640,7 +634,6 @@ def reprovar_ordem(ordem_id):
         abort(403)
     ordem = OrdemCompra.query.get_or_404(ordem_id)
 
-    # Se ja houve 1a aprovacao (debito efetuado), estorna saldo
     if ordem.aprovado_por and ordem.status == "Aguardando 2a Aprovacao":
         valor    = float(ordem.valor or 0)
         saldo_ap = SaldoAprovador.query.filter_by(nome_aprovador=ordem.aprovador).first()
@@ -687,14 +680,12 @@ def anexar_nf(ordem_id):
     ordem = OrdemCompra.query.get_or_404(ordem_id)
     file  = request.files.get("nota_fiscal")
     if not file:
-        flash("Nenhum arquivo enviado.", "warning")
         return redirect(url_for("relatorios"))
     os.makedirs(os.path.join("static", "notas_fiscais"), exist_ok=True)
     filename = secure_filename(file.filename)
     file.save(os.path.join("static", "notas_fiscais", filename))
     ordem.nota_fiscal = filename
     db.session.commit()
-    flash("Nota fiscal anexada com sucesso.", "success")
     return redirect(url_for("relatorios"))
 
 @app.route("/relatorios/excluir/<int:ordem_id>", methods=["POST"])
@@ -705,7 +696,6 @@ def excluir_ordem_relatorio(ordem_id):
     ordem = OrdemCompra.query.get_or_404(ordem_id)
     db.session.delete(ordem)
     db.session.commit()
-    flash("Ordem excluida.", "success")
     return redirect(url_for("relatorios"))
 
 # ===============================
@@ -767,8 +757,11 @@ def salvar_data_compra(ordem_id):
     ordem = OrdemCompra.query.get_or_404(ordem_id)
     data  = request.form.get("data_compra")
     if data:
-        ordem.data_compra = datetime.strptime(data, "%Y-%m-%d").date()
-        db.session.commit()
+        try:
+            ordem.data_compra = datetime.strptime(data, "%Y-%m-%d").date()
+            db.session.commit()
+        except ValueError:
+            pass
     return redirect(url_for("relatorios"))
 
 # ===============================
@@ -857,7 +850,6 @@ def excluir_produto(produto_id):
 # ===============================
 with app.app_context():
     db.create_all()
-    # Migrations inline (SQLite nao suporta ALTER TABLE automatico)
     migrations = [
         "ALTER TABLE usuarios ADD COLUMN limite_aprovacao REAL",
         "ALTER TABLE ordens_compra ADD COLUMN aprovador_2 TEXT",
@@ -870,7 +862,7 @@ with app.app_context():
             db.session.execute(text(sql))
             db.session.commit()
         except Exception:
-            pass  # Coluna ja existe
+            pass
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)
