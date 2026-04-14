@@ -538,7 +538,7 @@ def nova_ordem():
         flash("Ordem criada com sucesso.", "success")
         return redirect(url_for("ordens"))
 
-    produtos_json = [{"id": p.id, "nome": p.nome} for p in todos_todos_produtos]
+    produtos_json = [{"id": p.id, "nome": p.nome} for p in todos_produtos]
     return render_template(
         "nova_ordem.html",
         fornecedores=fornecedores_list,
@@ -746,9 +746,8 @@ def _draw_cabecalho_rodape(c, doc):
     c.line(1.8 * cm, altura - 3.8 * cm, largura - 1.8 * cm, altura - 3.8 * cm)
 
     # ── RODAPE ─────────────────────────────────────────────
-    rodape_y = 3.5 * cm   # base do bloco de assinatura
+    rodape_y = 3.5 * cm
 
-    # Linha acima do rodape
     c.line(1.8 * cm, rodape_y + 0.3 * cm, largura - 1.8 * cm, rodape_y + 0.3 * cm)
 
     assinatura_path = _path_static("assinatura.png")
@@ -761,7 +760,6 @@ def _draw_cabecalho_rodape(c, doc):
                     width=ass_w, height=ass_h,
                     preserveAspectRatio=True, mask="auto")
 
-    # Linha de assinatura
     linha_y = rodape_y - 0.1 * cm
     c.line(ass_x - 0.5 * cm, linha_y,
            ass_x + ass_w + 0.5 * cm, linha_y)
@@ -770,7 +768,6 @@ def _draw_cabecalho_rodape(c, doc):
     c.drawCentredString(largura / 2, linha_y - 0.4 * cm,
                         "Centro de Qualificação Profissional")
 
-    # Numero da pagina
     c.setFont("Helvetica", 7)
     c.setFillColorRGB(0.5, 0.5, 0.5)
     c.drawRightString(largura - 1.8 * cm, 1.5 * cm,
