@@ -721,7 +721,7 @@ def _draw_cabecalho_rodape(c, doc):
     largura, altura = A4
 
     # ── CABECALHO ──────────────────────────────────────────
-    logo_path = _path_static("logo_escola.jpg")
+    logo_path = _path_static("logo_escola.png")
     logo_x    = 1.8 * cm
     logo_y    = altura - 3.5 * cm
     logo_w    = 3.5 * cm
@@ -751,7 +751,7 @@ def _draw_cabecalho_rodape(c, doc):
     # Linha acima do rodape
     c.line(1.8 * cm, rodape_y + 0.3 * cm, largura - 1.8 * cm, rodape_y + 0.3 * cm)
 
-    assinatura_path = _path_static("assinatura.jpg")
+    assinatura_path = _path_static("assinatura.png")
     ass_w = 4.0 * cm
     ass_h = 1.8 * cm
     ass_x = (largura - ass_w) / 2
