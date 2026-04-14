@@ -153,7 +153,7 @@
         <div class="card shadow">
             <div class="card-header bg-light fw-bold">
                 📦 Novos Pedidos!
-            </div> <!-- FECHAMENTO CORRIGIDO AQUI -->
+            </div>
 
             <div class="card-body p-0">
                 {% if ordens_pendentes %}
@@ -343,7 +343,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const valores = {{ valores_centros | tojson }};
 
     if (!labels || labels.length === 0) {
-        canvas.parentElement.innerHTML += 
+        canvas.parentElement.innerHTML +=
         "<p class='text-muted text-center mt-4'>Nenhum gasto aprovado no ano atual.</p>";
         return;
     }
@@ -353,22 +353,35 @@ document.addEventListener("DOMContentLoaded", function () {
     gradient.addColorStop(0.5, "#2563eb");
     gradient.addColorStop(1, "#60a5fa");
 
+    /*
+     * Bug 4 fix: label acima da barra ficava cortado quando a barra
+     * atingia o topo do canvas.
+     *
+     * Solução:
+     *  - layout.padding.top: 30 → reserva 30px acima da barra mais alta
+     *  - No plugin, se bar.y < (chartArea.top + 28), o label entra
+     *    dentro da barra (ancora em bar.y + 16, cor branca).
+     *    Caso contrário mantém o comportamento original (bar.y - 8, cor escura).
+     */
     const valorTopoPlugin = {
         id: 'valorTopo',
         afterDatasetsDraw(chart) {
-            const {ctx} = chart;
+            const { ctx, chartArea } = chart;
             ctx.save();
             ctx.font = "bold 12px sans-serif";
-            ctx.fillStyle = "#1e293b";
             ctx.textAlign = "center";
 
             chart.getDatasetMeta(0).data.forEach((bar, index) => {
                 const value = chart.data.datasets[0].data[index];
-                ctx.fillText(
-                    "R$ " + Number(value).toLocaleString("pt-BR"),
-                    bar.x,
-                    bar.y - 8
-                );
+                const label = "R$ " + Number(value).toLocaleString("pt-BR");
+
+                // Se a barra está muito perto do topo da área de plotagem,
+                // posiciona o texto DENTRO da barra (branco), senão ACIMA (escuro).
+                const dentroZona = bar.y < (chartArea.top + 28);
+                ctx.fillStyle = dentroZona ? "#ffffff" : "#1e293b";
+                const posY    = dentroZona ? bar.y + 16  : bar.y - 8;
+
+                ctx.fillText(label, bar.x, posY);
             });
 
             ctx.restore();
@@ -403,6 +416,9 @@ document.addEventListener("DOMContentLoaded", function () {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: {
+                    padding: { top: 30 }   // Bug 4: reserva espaço para o label acima
+                },
                 plugins: {
                     legend: { display: false }
                 },
