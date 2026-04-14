@@ -8,14 +8,6 @@
         <small class="text-muted">Aprovadores são cadastrados na aba Funcionários com perfil Aprovador.</small>
     </div>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for categoria, mensagem in messages %}
-          <div class="alert alert-{{ categoria }}">{{ mensagem }}</div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
-
     <!-- APROVADORES -->
     <div class="card shadow-sm mb-4">
         <div class="card-header fw-bold">Aprovadores</div>

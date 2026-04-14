@@ -5,14 +5,6 @@
 
     <h3 class="fw-bold mb-3">Ordens de Compra</h3>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for categoria, mensagem in messages %}
-          <div class="alert alert-{{ categoria }}">{{ mensagem }}</div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
-
     <!-- TOTALIZADORES -->
     <div class="row mb-4">
         <div class="col-md-3">
@@ -115,7 +107,6 @@
                         <!-- AÇÕES -->
                         <td class="text-end">
 
-                            {# 1a aprovacao: apenas ordens Pendentes #}
                             {% if ordem.status == 'Pendente' and current_user.perfil in ['admin', 'aprovador'] %}
                                 <form method="POST"
                                       action="{{ url_for('aprovar', ordem_id=ordem.id) }}"
@@ -131,7 +122,6 @@
                                 </form>
                             {% endif %}
 
-                            {# 2a aprovacao: apenas ordens aguardando 2a aprovacao #}
                             {% if ordem.status == 'Aguardando 2a Aprovacao' and current_user.perfil in ['admin', 'aprovador'] %}
                                 <form method="POST"
                                       action="{{ url_for('segunda_aprovacao', ordem_id=ordem.id) }}"

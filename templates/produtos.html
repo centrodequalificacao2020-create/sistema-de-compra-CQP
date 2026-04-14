@@ -5,14 +5,6 @@
 
     <h3 class="fw-bold mb-4">Cadastro de Produtos</h3>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for categoria, mensagem in messages %}
-          <div class="alert alert-{{ categoria }}">{{ mensagem }}</div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
-
     <!-- FORMULÁRIO CADASTRO -->
     <div class="card shadow mb-4">
         <div class="card-body">
@@ -68,7 +60,6 @@
                         </td>
                         <td class="text-center">
 
-                            <!-- Botão Editar -->
                             {% if current_user.perfil in ['admin', 'financeiro'] %}
                             <button type="button"
                                     class="btn btn-sm btn-outline-primary me-1"
@@ -82,7 +73,6 @@
                             </button>
                             {% endif %}
 
-                            <!-- Botão Excluir -->
                             {% if current_user.perfil == 'admin' %}
                             <form method="POST"
                                   action="{{ url_for('excluir_produto', produto_id=p.id) }}"
