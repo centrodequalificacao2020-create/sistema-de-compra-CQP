@@ -14,22 +14,6 @@
 
 <h4 class="fw-bold text-primary mb-4">Nova Ordem de Compra</h4>
 
-{% if aprovadores_faixas %}
-<div class="alert alert-info py-2 mb-3" style="font-size:0.85rem">
-  <strong>Faixas de aprovação:</strong>
-  {% for a in aprovadores_faixas %}
-    <span class="me-3">
-      {{ a.nome }} &mdash;
-      {% if a.limite_aprovacao is not none %}
-        até R$ {{ "%.2f"|format(a.limite_aprovacao) }}
-      {% else %}
-        sem limite
-      {% endif %}
-    </span>
-  {% endfor %}
-</div>
-{% endif %}
-
 <form method="POST" class="card erp-card p-4">
 
 <div class="row mb-4">
@@ -94,11 +78,6 @@
 <script>
 const produtos = {{ produtos|tojson }};
 
-// Aprovadores ordenados por limite_aprovacao ASC (null = ilimitado = ultimo).
-// Regra: aprovador escolhido eh o primeiro cujo limite >= total.
-// Ex: Ruana limite=500 -> cobre valores ate 500
-//     Raquel limite=1000 -> cobre valores 501 a 1000
-//     Alex   limite=null -> cobre qualquer valor acima de 1000
 const aprovadoresFaixas = [
   {% for a in aprovadores_faixas %}
   { nome: {{ a.nome|tojson }}, limite: {{ a.limite_aprovacao if a.limite_aprovacao is not none else 'null' }} }{% if not loop.last %},{% endif %}
@@ -152,7 +131,6 @@ function calcular() {
     return;
   }
 
-  // Barra de risco relativa ao maior limite finito
   const limites = aprovadoresFaixas.map(a => a.limite).filter(l => l !== null);
   const limiteMaximo = limites.length > 0 ? Math.max(...limites) : null;
   if (limiteMaximo !== null && limiteMaximo > 0) {
@@ -163,12 +141,9 @@ function calcular() {
   }
   riskBar.className = "risk-bar";
 
-  // Percorre aprovadores em ordem crescente de limite.
-  // Escolhe o primeiro cujo limite >= total (ou limite null = ilimitado).
   let escolhido = null;
   for (const ap of aprovadoresFaixas) {
     if (ap.limite === null) {
-      // aprovador ilimitado: aceita qualquer valor
       escolhido = ap;
       break;
     }
@@ -179,7 +154,6 @@ function calcular() {
   }
 
   if (!escolhido) {
-    // Total acima de todos os limites finitos e nao ha aprovador ilimitado
     riskBar.classList.add("risk-high");
     bloqueioInfo.innerHTML = "Valor acima do limite máximo permitido. Nenhum aprovador pode aprovar este valor.";
     btnSubmit.disabled = true;
@@ -188,7 +162,6 @@ function calcular() {
 
   campoAprovador.value = escolhido.nome;
 
-  // Cor da barra conforme posicao na lista
   const idx = aprovadoresFaixas.indexOf(escolhido);
   const totalFaixas = aprovadoresFaixas.length;
   if (idx === 0)                    riskBar.classList.add("risk-low");
