@@ -500,8 +500,7 @@ def nova_ordem():
 
         nova = OrdemCompra(
             fornecedor=fornecedor, centro_custo=centro_custo,
-            aprovador=aprovador, descricao_itens="", valor=0,
-            data_compra=datetime.now().date()
+            aprovador=aprovador, descricao_itens="", valor=0
         )
         db.session.add(nova)
         db.session.flush()
@@ -713,14 +712,8 @@ def _path_static(filename):
     return os.path.join(base, "static", filename)
 
 def _draw_cabecalho_rodape(c, doc):
-    """
-    Chamado pelo ReportLab em cada pagina.
-    Desenha logo + cabecalho institucional no topo
-    e assinatura + linha + nome no rodape.
-    """
     largura, altura = A4
 
-    # ── CABECALHO ──────────────────────────────────────────
     logo_path = _path_static("logo_escola.png")
     logo_x    = 1.8 * cm
     logo_y    = altura - 3.5 * cm
@@ -731,7 +724,6 @@ def _draw_cabecalho_rodape(c, doc):
                     width=logo_w, height=logo_h,
                     preserveAspectRatio=True, mask="auto")
 
-    # Dados institucionais ao lado da logo
     texto_x = logo_x + logo_w + 0.5 * cm
     c.setFont("Helvetica-Bold", 11)
     c.drawString(texto_x, altura - 1.5 * cm, "CENTRO DE QUALIFICAÇÃO PROFISSIONAL CQP")
@@ -740,14 +732,11 @@ def _draw_cabecalho_rodape(c, doc):
     c.drawString(texto_x, altura - 2.6 * cm, "Rua: Prata Mancebo nº 148 - Centro  |  Carapebús - RJ  |  CEP 27998-000")
     c.drawString(texto_x, altura - 3.1 * cm, "Tel.: (22) 99868-4334  |  centrodequalificacao@cqpcursos.com.br")
 
-    # Linha separadora abaixo do cabecalho
     c.setStrokeColorRGB(0.6, 0.6, 0.6)
     c.setLineWidth(0.5)
     c.line(1.8 * cm, altura - 3.8 * cm, largura - 1.8 * cm, altura - 3.8 * cm)
 
-    # ── RODAPE ─────────────────────────────────────────────
     rodape_y = 3.5 * cm
-
     c.line(1.8 * cm, rodape_y + 0.3 * cm, largura - 1.8 * cm, rodape_y + 0.3 * cm)
 
     assinatura_path = _path_static("assinatura.png")
