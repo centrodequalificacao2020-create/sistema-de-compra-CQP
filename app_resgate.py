@@ -862,7 +862,7 @@ def relatorios_pdf():
 
     # Tabela de ordens
     cabecalho = [["ID", "Fornecedor", "Centro de Custo",
-                  "Valor (R$)", "Aprovador", "Data", "Status"]]
+                  "Valor (R$)", "Aprovador", "Data de Compra", "Status"]]
     dados = []
     for o in ordens:
         dados.append([
@@ -883,7 +883,7 @@ def relatorios_pdf():
         0.18 * largura_util,  # Centro
         0.13 * largura_util,  # Valor
         0.17 * largura_util,  # Aprovador
-        0.11 * largura_util,  # Data
+        0.11 * largura_util,  # Data de Compra
         0.13 * largura_util,  # Status
     ]
 
