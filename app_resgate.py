@@ -538,7 +538,7 @@ def nova_ordem():
         flash("Ordem criada com sucesso.", "success")
         return redirect(url_for("ordens"))
 
-    produtos_json = [{"id": p.id, "nome": p.nome} for p in todos_produtos]
+    produtos_json = [{"id": p.id, "nome": p.nome} for p in todos_todos_produtos]
     return render_template(
         "nova_ordem.html",
         fornecedores=fornecedores_list,
@@ -790,7 +790,7 @@ def relatorios_excel():
         "Centro de Custo": o.centro_custo,
         "Valor (R$)": float(o.valor or 0),
         "Aprovador": o.aprovado_por or "",
-        "Data da Compra": o.data_compra.strftime("%d/%m/%Y") if o.data_compra else "",
+        "Data de Compra": o.data_compra.strftime("%d/%m/%Y") if o.data_compra else "",
         "Status": o.status
     } for o in ordens]
     df     = pd.DataFrame(dados)
@@ -816,9 +816,8 @@ def relatorios_pdf():
 
     output = io.BytesIO()
 
-    # Margens: topo generoso para cabecalho, base para rodape
-    margem_topo   = 4.5 * cm
-    margem_base   = 4.5 * cm
+    margem_topo    = 4.5 * cm
+    margem_base    = 4.5 * cm
     margem_lateral = 1.8 * cm
 
     doc = BaseDocTemplate(
@@ -844,12 +843,12 @@ def relatorios_pdf():
     )
     doc.addPageTemplates([template])
 
-    styles   = getSampleStyleSheet()
-    titulo   = ParagraphStyle("titulo", parent=styles["Heading1"],
-                               alignment=TA_CENTER, fontSize=13, spaceAfter=12)
-    gerado   = ParagraphStyle("gerado", parent=styles["Normal"],
-                               alignment=TA_CENTER, fontSize=8,
-                               textColor=colors.grey, spaceAfter=16)
+    styles = getSampleStyleSheet()
+    titulo = ParagraphStyle("titulo", parent=styles["Heading1"],
+                            alignment=TA_CENTER, fontSize=13, spaceAfter=12)
+    gerado = ParagraphStyle("gerado", parent=styles["Normal"],
+                            alignment=TA_CENTER, fontSize=8,
+                            textColor=colors.grey, spaceAfter=16)
 
     story = [
         Paragraph("Relatório de Ordens de Compra", titulo),
@@ -860,7 +859,6 @@ def relatorios_pdf():
         ),
     ]
 
-    # Tabela de ordens
     cabecalho = [["ID", "Fornecedor", "Centro de Custo",
                   "Valor (R$)", "Aprovador", "Data de Compra", "Status"]]
     dados = []
@@ -877,33 +875,34 @@ def relatorios_pdf():
 
     tabela_dados = cabecalho + dados
     largura_util = A4[0] - 2 * margem_lateral
-    col_widths   = [
+    col_widths = [
         0.08 * largura_util,  # ID
-        0.20 * largura_util,  # Fornecedor
-        0.18 * largura_util,  # Centro
-        0.13 * largura_util,  # Valor
-        0.17 * largura_util,  # Aprovador
-        0.11 * largura_util,  # Data de Compra
+        0.18 * largura_util,  # Fornecedor
+        0.18 * largura_util,  # Centro de Custo
+        0.13 * largura_util,  # Valor (R$)
+        0.15 * largura_util,  # Aprovador
+        0.15 * largura_util,  # Data de Compra
         0.13 * largura_util,  # Status
     ]
 
     tbl = Table(tabela_dados, colWidths=col_widths, repeatRows=1)
     tbl.setStyle(TableStyle([
-        ("BACKGROUND",  (0, 0), (-1, 0),  colors.HexColor("#005f63")),
-        ("TEXTCOLOR",   (0, 0), (-1, 0),  colors.white),
-        ("FONTNAME",    (0, 0), (-1, 0),  "Helvetica-Bold"),
-        ("FONTSIZE",    (0, 0), (-1, 0),  8),
-        ("FONTSIZE",    (0, 1), (-1, -1), 7.5),
-        ("ALIGN",       (3, 1), (3, -1),  "RIGHT"),
-        ("ALIGN",       (5, 1), (5, -1),  "CENTER"),
-        ("ALIGN",       (6, 1), (6, -1),  "CENTER"),
-        ("GRID",        (0, 0), (-1, -1), 0.4, colors.HexColor("#aaaaaa")),
+        ("BACKGROUND",    (0, 0), (-1, 0),  colors.HexColor("#005f63")),
+        ("TEXTCOLOR",     (0, 0), (-1, 0),  colors.white),
+        ("FONTNAME",      (0, 0), (-1, 0),  "Helvetica-Bold"),
+        ("FONTSIZE",      (0, 0), (-1, 0),  8),
+        ("FONTSIZE",      (0, 1), (-1, -1), 7.5),
+        ("WORDWRAP",      (0, 0), (-1, 0),  True),
+        ("ALIGN",         (3, 1), (3, -1),  "RIGHT"),
+        ("ALIGN",         (5, 0), (5, -1),  "CENTER"),
+        ("ALIGN",         (6, 1), (6, -1),  "CENTER"),
+        ("GRID",          (0, 0), (-1, -1), 0.4, colors.HexColor("#aaaaaa")),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1),
          [colors.white, colors.HexColor("#f2f9f9")]),
-        ("TOPPADDING",  (0, 0), (-1, -1), 4),
+        ("TOPPADDING",    (0, 0), (-1, -1), 4),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ("LEFTPADDING", (0, 0), (-1, -1), 5),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 5),
     ]))
 
     story.append(tbl)
