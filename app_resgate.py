@@ -494,7 +494,9 @@ def nova_ordem():
 
         nova = OrdemCompra(
             fornecedor=fornecedor, centro_custo=centro_custo,
-            aprovador=aprovador, descricao_itens="", valor=0
+            aprovador=aprovador, descricao_itens="", valor=0,
+            # Bug2: preenche a data de criacao automaticamente
+            data_compra=datetime.now().date()
         )
         db.session.add(nova)
         db.session.flush()
@@ -861,6 +863,7 @@ with app.app_context():
         "ALTER TABLE ordens_compra ADD COLUMN aprovador_2 TEXT",
         "ALTER TABLE ordens_compra ADD COLUMN aprovado_por_2 TEXT",
         "ALTER TABLE ordens_compra ADD COLUMN aprovado_em_2 DATETIME",
+        "ALTER TABLE ordens_compra ADD COLUMN data_compra DATE",
     ]
     for sql in migrations:
         try:
