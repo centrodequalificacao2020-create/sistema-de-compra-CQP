@@ -14,6 +14,22 @@
 
 <h4 class="fw-bold text-primary mb-4">Nova Ordem de Compra</h4>
 
+{% if aprovadores_faixas %}
+<div class="alert alert-info py-2 mb-3" style="font-size:0.85rem">
+  <strong>Faixas de aprovação:</strong>
+  {% for a in aprovadores_faixas %}
+    <span class="me-3">
+      {{ a.nome }} &mdash;
+      {% if a.limite_aprovacao is not none %}
+        até R$ {{ "%.2f"|format(a.limite_aprovacao) }}
+      {% else %}
+        sem limite
+      {% endif %}
+    </span>
+  {% endfor %}
+</div>
+{% endif %}
+
 <form method="POST" class="card erp-card p-4">
 
 <div class="row mb-4">
@@ -78,8 +94,11 @@
 <script>
 const produtos = {{ produtos|tojson }};
 
-// Aprovadores ordenados por limite_aprovacao crescente (null = sem limite = ultimo).
-// Cada item: { nome, limite }  onde limite === null significa ilimitado.
+// Aprovadores ordenados por limite_aprovacao ASC (null = ilimitado = ultimo).
+// Regra: aprovador escolhido eh o primeiro cujo limite >= total.
+// Ex: Ruana limite=500 -> cobre valores ate 500
+//     Raquel limite=1000 -> cobre valores 501 a 1000
+//     Alex   limite=null -> cobre qualquer valor acima de 1000
 const aprovadoresFaixas = [
   {% for a in aprovadores_faixas %}
   { nome: {{ a.nome|tojson }}, limite: {{ a.limite_aprovacao if a.limite_aprovacao is not none else 'null' }} }{% if not loop.last %},{% endif %}
@@ -117,42 +136,43 @@ function calcular() {
 
   document.getElementById("totalGeral").innerText = total.toFixed(2);
 
-  const riskBar      = document.getElementById("riskBar");
-  const aprovadorInfo = document.getElementById("aprovadorInfo");
-  const bloqueioInfo  = document.getElementById("bloqueioInfo");
-  const btnSubmit     = document.getElementById("btnSubmit");
+  const riskBar        = document.getElementById("riskBar");
+  const aprovadorInfo  = document.getElementById("aprovadorInfo");
+  const bloqueioInfo   = document.getElementById("bloqueioInfo");
+  const btnSubmit      = document.getElementById("btnSubmit");
   const campoAprovador = document.getElementById("campoAprovador");
 
-  bloqueioInfo.innerHTML = "";
+  bloqueioInfo.innerHTML  = "";
   aprovadorInfo.innerHTML = "";
-  campoAprovador.value = "";
-  btnSubmit.disabled = false;
-
-  // Determina o limite maximo (maior limite_aprovacao finito entre os aprovadores)
-  const limites = aprovadoresFaixas.map(a => a.limite).filter(l => l !== null);
-  const limiteMaximo = limites.length > 0 ? Math.max(...limites) : null;
-
-  // Barra de risco relativa ao maior limite finito
-  if (limiteMaximo !== null && limiteMaximo > 0) {
-    const pct = Math.min((total / limiteMaximo) * 100, 100);
-    riskBar.style.width = pct + "%";
-  } else {
-    riskBar.style.width = "0%";
-  }
-
-  riskBar.className = "risk-bar";
+  campoAprovador.value    = "";
+  btnSubmit.disabled      = false;
 
   if (aprovadoresFaixas.length === 0) {
-    // Nenhum aprovador cadastrado com faixa — nao bloqueia, deixa sem aprovador
     aprovadorInfo.innerHTML = "<span class='text-muted'>Nenhum aprovador configurado.</span>";
     return;
   }
 
-  // Percorre aprovadores em ordem crescente de limite e escolhe o primeiro
-  // cujo limite >= total (ou cujo limite seja null = ilimitado).
+  // Barra de risco relativa ao maior limite finito
+  const limites = aprovadoresFaixas.map(a => a.limite).filter(l => l !== null);
+  const limiteMaximo = limites.length > 0 ? Math.max(...limites) : null;
+  if (limiteMaximo !== null && limiteMaximo > 0) {
+    const pct = Math.min((total / limiteMaximo) * 100, 100);
+    riskBar.style.width = pct + "%";
+  } else {
+    riskBar.style.width = total > 0 ? "50%" : "0%";
+  }
+  riskBar.className = "risk-bar";
+
+  // Percorre aprovadores em ordem crescente de limite.
+  // Escolhe o primeiro cujo limite >= total (ou limite null = ilimitado).
   let escolhido = null;
   for (const ap of aprovadoresFaixas) {
-    if (ap.limite === null || total <= ap.limite) {
+    if (ap.limite === null) {
+      // aprovador ilimitado: aceita qualquer valor
+      escolhido = ap;
+      break;
+    }
+    if (total <= ap.limite) {
       escolhido = ap;
       break;
     }
@@ -161,7 +181,7 @@ function calcular() {
   if (!escolhido) {
     // Total acima de todos os limites finitos e nao ha aprovador ilimitado
     riskBar.classList.add("risk-high");
-    bloqueioInfo.innerHTML = "Valor acima do limite máximo permitido.";
+    bloqueioInfo.innerHTML = "Valor acima do limite máximo permitido. Nenhum aprovador pode aprovar este valor.";
     btnSubmit.disabled = true;
     return;
   }
@@ -170,10 +190,10 @@ function calcular() {
 
   // Cor da barra conforme posicao na lista
   const idx = aprovadoresFaixas.indexOf(escolhido);
-  const total_faixas = aprovadoresFaixas.length;
-  if (idx === 0)                        riskBar.classList.add("risk-low");
-  else if (idx === total_faixas - 1)    riskBar.classList.add("risk-high");
-  else                                  riskBar.classList.add("risk-medium");
+  const totalFaixas = aprovadoresFaixas.length;
+  if (idx === 0)                    riskBar.classList.add("risk-low");
+  else if (idx === totalFaixas - 1) riskBar.classList.add("risk-high");
+  else                              riskBar.classList.add("risk-medium");
 
   aprovadorInfo.innerHTML = `Aprovador: <strong>${escolhido.nome}</strong>`;
 }
