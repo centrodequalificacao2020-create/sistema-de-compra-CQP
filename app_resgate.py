@@ -4,8 +4,14 @@ import io
 import pandas as pd
 from flask import send_file
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Spacer, Paragraph
+from reportlab.platypus import BaseDocTemplate, Frame, PageTemplate
 from reportlab.lib import colors
+from reportlab.lib.units import cm
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.platypus import Image as RLImage
+from reportlab.pdfgen import canvas as rl_canvas
 
 from flask import (
     Flask, render_template, request,
@@ -699,6 +705,80 @@ def excluir_ordem_relatorio(ordem_id):
     return redirect(url_for("relatorios"))
 
 # ===============================
+# HELPERS PDF — cabecalho e rodape
+# ===============================
+def _path_static(filename):
+    """Retorna caminho absoluto para arquivo dentro de static/."""
+    base = os.path.abspath(os.path.dirname(__file__))
+    return os.path.join(base, "static", filename)
+
+def _draw_cabecalho_rodape(c, doc):
+    """
+    Chamado pelo ReportLab em cada pagina.
+    Desenha logo + cabecalho institucional no topo
+    e assinatura + linha + nome no rodape.
+    """
+    largura, altura = A4
+
+    # ── CABECALHO ──────────────────────────────────────────
+    logo_path = _path_static("logo_escola.jpg")
+    logo_x    = 1.8 * cm
+    logo_y    = altura - 3.5 * cm
+    logo_w    = 3.5 * cm
+    logo_h    = 3.5 * cm
+    if os.path.exists(logo_path):
+        c.drawImage(logo_path, logo_x, logo_y,
+                    width=logo_w, height=logo_h,
+                    preserveAspectRatio=True, mask="auto")
+
+    # Dados institucionais ao lado da logo
+    texto_x = logo_x + logo_w + 0.5 * cm
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(texto_x, altura - 1.5 * cm, "CENTRO DE QUALIFICAÇÃO PROFISSIONAL CQP")
+    c.setFont("Helvetica", 9)
+    c.drawString(texto_x, altura - 2.1 * cm, "CNPJ: 39.368.679/0001-01")
+    c.drawString(texto_x, altura - 2.6 * cm, "Rua: Prata Mancebo nº 148 - Centro  |  Carapebús - RJ  |  CEP 27998-000")
+    c.drawString(texto_x, altura - 3.1 * cm, "Tel.: (22) 99868-4334  |  centrodequalificacao@cqpcursos.com.br")
+
+    # Linha separadora abaixo do cabecalho
+    c.setStrokeColorRGB(0.6, 0.6, 0.6)
+    c.setLineWidth(0.5)
+    c.line(1.8 * cm, altura - 3.8 * cm, largura - 1.8 * cm, altura - 3.8 * cm)
+
+    # ── RODAPE ─────────────────────────────────────────────
+    rodape_y = 3.5 * cm   # base do bloco de assinatura
+
+    # Linha acima do rodape
+    c.line(1.8 * cm, rodape_y + 0.3 * cm, largura - 1.8 * cm, rodape_y + 0.3 * cm)
+
+    assinatura_path = _path_static("assinatura.jpg")
+    ass_w = 4.0 * cm
+    ass_h = 1.8 * cm
+    ass_x = (largura - ass_w) / 2
+    ass_y = rodape_y + 0.5 * cm
+    if os.path.exists(assinatura_path):
+        c.drawImage(assinatura_path, ass_x, ass_y,
+                    width=ass_w, height=ass_h,
+                    preserveAspectRatio=True, mask="auto")
+
+    # Linha de assinatura
+    linha_y = rodape_y - 0.1 * cm
+    c.line(ass_x - 0.5 * cm, linha_y,
+           ass_x + ass_w + 0.5 * cm, linha_y)
+
+    c.setFont("Helvetica", 8)
+    c.drawCentredString(largura / 2, linha_y - 0.4 * cm,
+                        "Centro de Qualificação Profissional")
+
+    # Numero da pagina
+    c.setFont("Helvetica", 7)
+    c.setFillColorRGB(0.5, 0.5, 0.5)
+    c.drawRightString(largura - 1.8 * cm, 1.5 * cm,
+                      f"Página {doc.page}")
+    c.setFillColorRGB(0, 0, 0)
+
+
+# ===============================
 # EXPORTAR EXCEL
 # ===============================
 @app.route("/relatorios/excel")
@@ -730,26 +810,112 @@ def relatorios_excel():
 @app.route("/relatorios/pdf")
 @login_required
 def relatorios_pdf():
-    ordens  = OrdemCompra.query.order_by(OrdemCompra.id.desc()).all()
-    caminho = os.path.join(os.getcwd(), "relatorio_ordens.pdf")
-    doc     = SimpleDocTemplate(caminho, pagesize=A4)
-    tabela  = [["ID","Fornecedor","Centro","Valor","Aprovador","Data","Status"]]
+    from reportlab.platypus import BaseDocTemplate, Frame, PageTemplate
+
+    ordens = OrdemCompra.query.order_by(OrdemCompra.id.desc()).all()
+
+    output = io.BytesIO()
+
+    # Margens: topo generoso para cabecalho, base para rodape
+    margem_topo   = 4.5 * cm
+    margem_base   = 4.5 * cm
+    margem_lateral = 1.8 * cm
+
+    doc = BaseDocTemplate(
+        output,
+        pagesize=A4,
+        topMargin=margem_topo,
+        bottomMargin=margem_base,
+        leftMargin=margem_lateral,
+        rightMargin=margem_lateral,
+    )
+
+    frame = Frame(
+        margem_lateral, margem_base,
+        A4[0] - 2 * margem_lateral,
+        A4[1] - margem_topo - margem_base,
+        id="conteudo"
+    )
+
+    template = PageTemplate(
+        id="cqp",
+        frames=[frame],
+        onPage=_draw_cabecalho_rodape
+    )
+    doc.addPageTemplates([template])
+
+    styles   = getSampleStyleSheet()
+    titulo   = ParagraphStyle("titulo", parent=styles["Heading1"],
+                               alignment=TA_CENTER, fontSize=13, spaceAfter=12)
+    gerado   = ParagraphStyle("gerado", parent=styles["Normal"],
+                               alignment=TA_CENTER, fontSize=8,
+                               textColor=colors.grey, spaceAfter=16)
+
+    story = [
+        Paragraph("Relatório de Ordens de Compra", titulo),
+        Paragraph(
+            f"Gerado em {datetime.now().strftime('%d/%m/%Y às %H:%M')}  |  "
+            f"Por: {current_user.nome}",
+            gerado
+        ),
+    ]
+
+    # Tabela de ordens
+    cabecalho = [["ID", "Fornecedor", "Centro de Custo",
+                  "Valor (R$)", "Aprovador", "Data", "Status"]]
+    dados = []
     for o in ordens:
-        tabela.append([
-            str(o.id), o.fornecedor, o.centro_custo,
+        dados.append([
+            str(o.id),
+            o.fornecedor or "",
+            o.centro_custo or "",
             f"R$ {float(o.valor or 0):.2f}",
             o.aprovado_por or "",
             o.data_compra.strftime("%d/%m/%Y") if o.data_compra else "",
-            o.status
+            o.status or ""
         ])
-    tbl = Table(tabela)
+
+    tabela_dados = cabecalho + dados
+    largura_util = A4[0] - 2 * margem_lateral
+    col_widths   = [
+        0.08 * largura_util,  # ID
+        0.20 * largura_util,  # Fornecedor
+        0.18 * largura_util,  # Centro
+        0.13 * largura_util,  # Valor
+        0.17 * largura_util,  # Aprovador
+        0.11 * largura_util,  # Data
+        0.13 * largura_util,  # Status
+    ]
+
+    tbl = Table(tabela_dados, colWidths=col_widths, repeatRows=1)
     tbl.setStyle(TableStyle([
-        ("GRID",       (0,0), (-1,-1), 0.5, colors.grey),
-        ("BACKGROUND", (0,0), (-1, 0), colors.lightgrey),
-        ("ALIGN",      (3,1), ( 3,-1), "RIGHT"),
+        ("BACKGROUND",  (0, 0), (-1, 0),  colors.HexColor("#005f63")),
+        ("TEXTCOLOR",   (0, 0), (-1, 0),  colors.white),
+        ("FONTNAME",    (0, 0), (-1, 0),  "Helvetica-Bold"),
+        ("FONTSIZE",    (0, 0), (-1, 0),  8),
+        ("FONTSIZE",    (0, 1), (-1, -1), 7.5),
+        ("ALIGN",       (3, 1), (3, -1),  "RIGHT"),
+        ("ALIGN",       (5, 1), (5, -1),  "CENTER"),
+        ("ALIGN",       (6, 1), (6, -1),  "CENTER"),
+        ("GRID",        (0, 0), (-1, -1), 0.4, colors.HexColor("#aaaaaa")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1),
+         [colors.white, colors.HexColor("#f2f9f9")]),
+        ("TOPPADDING",  (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
     ]))
-    doc.build([tbl])
-    return send_file(caminho, as_attachment=True, download_name="relatorio_ordens.pdf")
+
+    story.append(tbl)
+    doc.build(story)
+
+    output.seek(0)
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name="relatorio_ordens.pdf",
+        mimetype="application/pdf"
+    )
 
 @app.route("/relatorios/data_compra/<int:ordem_id>", methods=["POST"])
 @login_required
