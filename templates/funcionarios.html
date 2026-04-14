@@ -73,7 +73,7 @@
         <div class="card-body">
             <form method="POST" class="row g-3 align-items-end">
 
-                <div class="col-md-2">
+                <div class="col-md-3">
                     <label class="form-label">Nome</label>
                     <input type="text" name="nome" class="form-control" required>
                 </div>
@@ -108,8 +108,8 @@
                            placeholder="Ex: 500 (ou vazio = ilimitado)">
                 </div>
 
-                <div class="col-md-1">
-                    <button class="btn btn-primary w-100">
+                <div class="col-md-auto">
+                    <button class="btn btn-primary">
                         <i class="bi bi-plus-circle"></i>
                         Cadastrar
                     </button>
@@ -118,42 +118,6 @@
             </form>
         </div>
     </div>
-
-    <!-- ===================== -->
-    <!-- FAIXAS CONFIGURADAS -->
-    <!-- ===================== -->
-    {% set aprovadores = funcionarios | selectattr("perfil", "equalto", "aprovador") | list %}
-    {% if aprovadores %}
-    <div class="card shadow-sm mb-4 border-0">
-        <div class="card-header fw-bold bg-light">
-            Faixas de aprovação configuradas
-        </div>
-        <div class="table-responsive">
-            <table class="table table-sm align-middle mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Aprovador</th>
-                        <th>Faixa</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for f in aprovadores | sort(attribute='limite_aprovacao', reverse=False) %}
-                    <tr>
-                        <td class="fw-semibold">{{ f.nome }}</td>
-                        <td>
-                            {% if f.limite_aprovacao is none or f.limite_aprovacao == '' %}
-                                <span class="badge bg-primary">Sem limite (aprova qualquer valor)</span>
-                            {% else %}
-                                Até R$ {{ "%.2f"|format(f.limite_aprovacao) }}
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-    {% endif %}
 
     <!-- ===================== -->
     <!-- LISTA DE FUNCIONÁRIOS -->
@@ -170,7 +134,6 @@
                         <th>Nome</th>
                         <th>Email</th>
                         <th>Perfil</th>
-                        <th>Limite de Aprovação</th>
                         <th class="text-center">Ações</th>
                     </tr>
                 </thead>
@@ -191,17 +154,6 @@
                                 <span class="badge bg-secondary">Usuário</span>
                             {% endif %}
                         </td>
-                        <td>
-                            {% if f.perfil == "aprovador" %}
-                                {% if f.limite_aprovacao is not none %}
-                                    R$ {{ "%.2f"|format(f.limite_aprovacao) }}
-                                {% else %}
-                                    <span class="text-muted fst-italic">Ilimitado</span>
-                                {% endif %}
-                            {% else %}
-                                <span class="text-muted">—</span>
-                            {% endif %}
-                        </td>
                         <td class="text-center">
                             <form method="POST"
                                   action="{{ url_for('excluir_funcionario', usuario_id=f.id) }}"
@@ -214,7 +166,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="5" class="text-center text-muted py-4">
+                        <td colspan="4" class="text-center text-muted py-4">
                             Nenhum funcionário cadastrado.
                         </td>
                     </tr>
@@ -239,7 +191,6 @@ function toggleLimite() {
         input.value = '';
     }
 }
-// Inicializa tooltips Bootstrap
 document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
         new bootstrap.Tooltip(el);
