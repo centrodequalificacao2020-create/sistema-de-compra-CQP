@@ -684,14 +684,30 @@ def relatorios():
 def anexar_nf(ordem_id):
     ordem = OrdemCompra.query.get_or_404(ordem_id)
     file  = request.files.get("nota_fiscal")
-    if not file:
+    if not file or not file.filename:
+        flash("Nenhum arquivo selecionado.", "warning")
         return redirect(url_for("relatorios"))
-    pasta = _path_static("notas_fiscais")
+
+    pasta    = _path_static("notas_fiscais")
     os.makedirs(pasta, exist_ok=True)
     filename = secure_filename(file.filename)
-    file.save(os.path.join(pasta, filename))
+    destino  = os.path.join(pasta, filename)
+
+    try:
+        file.save(destino)
+    except OSError as e:
+        print(f"[anexar_nf] Falha ao salvar arquivo: {e}")
+        flash("Erro ao salvar o arquivo. Tente novamente.", "danger")
+        return redirect(url_for("relatorios"))
+
+    # Só atualiza o banco se o arquivo foi gravado com sucesso
+    if not os.path.exists(destino):
+        flash("Arquivo não foi gravado corretamente. Tente novamente.", "danger")
+        return redirect(url_for("relatorios"))
+
     ordem.nota_fiscal = filename
     db.session.commit()
+    flash("Nota fiscal anexada com sucesso.", "success")
     return redirect(url_for("relatorios"))
 
 @app.route("/relatorios/excluir/<int:ordem_id>", methods=["POST"])
@@ -863,13 +879,13 @@ def relatorios_pdf():
     tabela_dados = cabecalho + dados
     largura_util = A4[0] - 2 * margem_lateral
     col_widths = [
-        0.08 * largura_util,  # ID
-        0.18 * largura_util,  # Fornecedor
-        0.18 * largura_util,  # Centro de Custo
-        0.13 * largura_util,  # Valor (R$)
-        0.15 * largura_util,  # Aprovador
-        0.15 * largura_util,  # Data de Compra
-        0.13 * largura_util,  # Status
+        0.08 * largura_util,
+        0.18 * largura_util,
+        0.18 * largura_util,
+        0.13 * largura_util,
+        0.15 * largura_util,
+        0.15 * largura_util,
+        0.13 * largura_util,
     ]
 
     tbl = Table(tabela_dados, colWidths=col_widths, repeatRows=1)
