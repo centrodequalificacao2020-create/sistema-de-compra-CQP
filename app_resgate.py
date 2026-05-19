@@ -686,9 +686,10 @@ def anexar_nf(ordem_id):
     file  = request.files.get("nota_fiscal")
     if not file:
         return redirect(url_for("relatorios"))
-    os.makedirs(os.path.join("static", "notas_fiscais"), exist_ok=True)
+    pasta = _path_static("notas_fiscais")
+    os.makedirs(pasta, exist_ok=True)
     filename = secure_filename(file.filename)
-    file.save(os.path.join("static", "notas_fiscais", filename))
+    file.save(os.path.join(pasta, filename))
     ordem.nota_fiscal = filename
     db.session.commit()
     return redirect(url_for("relatorios"))
