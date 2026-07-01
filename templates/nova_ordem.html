@@ -141,16 +141,18 @@ function calcular() {
   }
   riskBar.className = "risk-bar";
 
+  // Busca aprovador com limite numérico suficiente (menor limite que cobre o valor)
   let escolhido = null;
   for (const ap of aprovadoresFaixas) {
-    if (ap.limite === null) {
+    if (ap.limite !== null && total <= ap.limite) {
       escolhido = ap;
       break;
     }
-    if (total <= ap.limite) {
-      escolhido = ap;
-      break;
-    }
+  }
+
+  // Se nenhum limite numérico cobre, usa o aprovador sem limite (curinga)
+  if (!escolhido) {
+    escolhido = aprovadoresFaixas.find(a => a.limite === null) || null;
   }
 
   if (!escolhido) {
